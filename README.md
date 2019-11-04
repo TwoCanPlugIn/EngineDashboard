@@ -5,7 +5,9 @@ The Engine Dashboard Plugin displays Engine parameters & Fluid levels in OpenCPN
 
 The Engine Dashboard displays the following data:
 Engine RPM, Oil Pressure, Coolant Temperature, Engine Hours & Alternator Voltage for either single or dual engine vessels.
+
 Fluid levels for Fuel, Water, Oil, Live Well, Grey and Black Waste.
+
 and Rudder Angle.
 
 The engine dashboard consumes a subset of NMEA 0183 sentences.
@@ -14,14 +16,14 @@ For Rudder Angle it uses RSA sentences.
 
 For XDR entences, the following are used:
 
-| Measurment	Transducer |	Type	|	Measurement Unit |	Transducer Name1|
+| Measurment	Transducer |	Type	|	Measurement Unit |	Transducer Name<sup>1</sup>|
 |-----------------------|------|------------------|-----------------|
 |Engine RPM | T | R (RPM)| MAIN, PORT or STBD|
 |Oil pressure	| P |	P (Pascals)	| MAIN, PORT or STBD|
 |Water Temperature	| C |		C (Celsius)		| MAIN, PORT or STBD|
 |Alternator Voltage |	U |	V (Volts)	| MAIN, PORT or STBD|
-|Engine Hours |	G  | H (Hours)2	| MAIN, PORT or STBD|
-|Fluid Levels	| V  |	P (Percent)3	 |	FUEL, H2O, OIL, LIVE, GREY, BLK|
+|Engine Hours |	G  | H (Hours)<sup>2</sup>	| MAIN, PORT or STBD|
+|Fluid Levels	| V  |	P (Percent)<sup>3</sup>	 |	FUEL, H2O, OIL, LIVE, GREY, BLK|
 
 1. These names are hardcoded in the Engine Dashboard and mate with the output produced by the TwoCan plugin. If user's receive data from other sources with different transducer names then the NMEA Converter plugin could be used to modify these fields.
 2. The use of 'H' to indicate hours is a customised use of the generic transducer type.
