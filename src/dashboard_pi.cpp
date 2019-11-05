@@ -387,7 +387,11 @@ bool dashboard_pi::DeInit(void) {
 void dashboard_pi::Notify()
 {
     if (wxDateTime::Now() > (watchDogTime + wxTimeSpan::Seconds(5))) {
-	// BUG BUG Need to zero all the intruments
+		// Zero all the instruments, Note OCPN_DBP_STC_RSA is the last entry in the enum
+		for (int i = 0, j = 0; j != OCPN_DBP_STC_RSA; i++) {
+			j = 1 << i;
+			SendSentenceToAllInstruments(j,0.0f, "");
+		}
     }
 
     // Force a repaint of each instrument
