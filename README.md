@@ -4,6 +4,7 @@ Engine Dashboard plug-in for OpenCPN
 The Engine Dashboard Plugin displays engine parameters, fluid levels and battery status in OpenCPN. It accepts NMEA 0183 RPM (Revolutions), RSA (Rudder Sensor Angle) and XDR (Transducer Measurement) sentences as its input. For sailors with NMEA2000® engine and tank sensors, the latest release of the TwoCan plugin, verion 1.6 can convert the appropriate messages from NMEA2000® networks to their NMEA 0183 equivalents which can then be displayed by the Engine Dashboard.
 
 The Engine Dashboard displays the following data:
+
 Engine RPM, Oil Pressure, Coolant Temperature, Engine Hours & Alternator Voltage for either single or dual engine vessels.
 
 Fluid levels for Fuel, Water, Oil, Live Well, Grey and Black Waste.
@@ -18,7 +19,7 @@ For Rudder Angle it uses RSA sentences.
 
 For XDR entences, the following are used:
 
-| Measurment	Transducer |	Type	|	Measurement Unit |	Transducer Name<sup>1</sup>|
+| Measurement	Transducer |	Type	|	Measurement Unit |	Transducer Name<sup>1</sup>|
 |-----------------------|------|------------------|-----------------|
 |Engine RPM | T | R (RPM)| MAIN, PORT or STBD|
 |Oil pressure	| P |	P (Pascals)	| MAIN, PORT or STBD|
