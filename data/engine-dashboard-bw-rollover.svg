@@ -15,7 +15,7 @@
    y="0px"
    viewBox="0 0 598.21014 524.44745"
    xml:space="preserve"
-   sodipodi:docname="engine-dashboard-bw.svg"
+   sodipodi:docname="engine-dashboard-bw-rollover.svg"
    inkscape:version="0.92.3 (2405546, 2018-03-11)"
    width="598.21014"
    height="524.44745"><metadata
@@ -49,7 +49,7 @@
    fit-margin-right="0"
    fit-margin-bottom="0" />
 <rect
-   style="fill:#282828;fill-opacity:1;stroke:#0a0a0a;stroke-width:1.60000002;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+   style="fill:#898989;fill-opacity:1;stroke:#0a0a0a;stroke-width:1.60000002;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
    id="rect841"
    width="596.61017"
    height="522.84747"

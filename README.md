@@ -1,12 +1,14 @@
 Engine Dashboard plug-in for OpenCPN
 ====================================
 
-The Engine Dashboard Plugin displays Engine parameters & Fluid levels in OpenCPN. It accepts NMEA 0183 RPM (Revolutions), RSA (Rudder Sensor Angle) and XDR (Transducer Measurement) sentences as its input. For sailors with NMEA2000® engine and tank sensors, the latest release of the TwoCan plugin, verion 1.6 can convert the appropriate messages from NMEA2000® networks to their NMEA 0183 equivalents which can then be displayed by the Engine Dashboard.
+The Engine Dashboard Plugin displays engine parameters, fluid levels and battery status in OpenCPN. It accepts NMEA 0183 RPM (Revolutions), RSA (Rudder Sensor Angle) and XDR (Transducer Measurement) sentences as its input. For sailors with NMEA2000® engine and tank sensors, the latest release of the TwoCan plugin, verion 1.6 can convert the appropriate messages from NMEA2000® networks to their NMEA 0183 equivalents which can then be displayed by the Engine Dashboard.
 
 The Engine Dashboard displays the following data:
 Engine RPM, Oil Pressure, Coolant Temperature, Engine Hours & Alternator Voltage for either single or dual engine vessels.
 
 Fluid levels for Fuel, Water, Oil, Live Well, Grey and Black Waste.
+
+Battery status (voltage and current) for the Start and House batteries.
 
 and Rudder Angle.
 
@@ -24,10 +26,13 @@ For XDR entences, the following are used:
 |Alternator Voltage |	U |	V (Volts)	| MAIN, PORT or STBD|
 |Engine Hours |	G  | H (Hours)<sup>2</sup>	| MAIN, PORT or STBD|
 |Fluid Levels	| V  |	P (Percent)<sup>3</sup>	 |	FUEL, H2O, OIL, LIVE, GREY, BLK|
+|Battery Voltage | U  | V (Volts) | STRT (Start or Main), HOUS (House or Auxilliary)|
+|Battery Current | U  | A (Amps)<sup>4</sup> | STRT (Start or Main), HOUS (House or Auxilliary)|
 
 1. These names are hardcoded in the Engine Dashboard and mate with the output produced by the TwoCan plugin. If user's receive data from other sources with different transducer names then the NMEA Converter plugin could be used to modify these fields.
 2. The use of 'H' to indicate hours is a customised use of the generic transducer type.
 3. Note this deviates from the the standard volume measurement unit which is 'M' cubic metres.
+4. Note this extends the usage of the "U" (Voltage Transducer) to include current measured in Amps.
 
 Examples of NMEA 0183 XDR sentences that may be used by the engine plugin are:
 
@@ -41,7 +46,6 @@ $IIXDR,G,1.16,H,MAIN&ast;52
 There are a few features yet to be implemented in this version of the Engine Dashboard:
 1. It supports only a single rudder display.
 2. While the preferences dialog allows selection of Pressure units (Pascal or PSI) and Temperature (Celsius or Fahrenheit), the display is only changed the next time OpenCPN is started,
-3. The instruments do not "zero" if data is no longer being received (Eg. the engine is switched off)
 
 The rationale for developing yet another dashboard was the following:
 1. The existing dashboard plugin has limitation of how many inputs/controls it can support. Therefore to add these engine displays would have meant deleting some of the other dashboard controls such as position, depth, speed. 
@@ -52,7 +56,7 @@ Unfortunately development of both this new version of the TwoCan plugin and Engi
 
 Known bugs
 ----------
-On a Raspberry Pi running Buster (and possibly earlier versions) with OpenCPN v5.0, if the dashboard is in a horizontal orientation, OpenCPN crashes when a adding or deleting an instrument to the dashboard. The workaround is to add or delete instruments to the dashboard when it is in a vertical orientation, or to add or delete instruments when the dashboard is not visible. (Note the same bug exists in the built-in dashboard and probably also in the tactics-dashboard)
+On Linux (such as Ubuntu or Raspberry Pi) with OpenCPN v5.0, if the dashboard is in a horizontal orientation, OpenCPN crashes when adding or deleting an instrument to the dashboard. The workaround is to add or delete instruments to the dashboard when it is in a vertical orientation, or to add or delete instruments when the dashboard is not visible. (Note the same bug exists in the built-in dashboard and probably also in the tactics-dashboard)
 
 Obtaining the source code
 -------------------------
@@ -88,6 +92,17 @@ Build Commands
 Creating an installation package
 --------------------------------
  cmake --build . --config release --target package
+
+  or
+
+ cpack
+
+Installation
+------------
+
+Windows: Run the resulting packagename.exe installation package
+Linux: Install the resulting installation package with the appropriate Package Manager.
+For example with Ubuntu: sudo dpkg -i packagename.arch.deb (where arch is the cpu architecture such as amd64)
 
 Problems
 --------

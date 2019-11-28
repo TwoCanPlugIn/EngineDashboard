@@ -15,6 +15,7 @@ extern wxBitmap *_img_dial;
 extern wxBitmap *_img_instrument;
 extern wxBitmap *_img_dashboard;
 extern wxBitmap *_img_engine;
+extern wxBitmap *_img_gauge_background;
 
 
 #endif /* _ICONS_H */

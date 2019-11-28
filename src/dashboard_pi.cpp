@@ -5,8 +5,9 @@
 // Parses NMEA 0183 RSA, RPM & XDR sentences and displays Engine RPM, Oil Pressure, Water Temperature, 
 // Alternator Voltage, Engine Hours andFluid Levels in a dashboard
 //
-// Version 1.0
-// 10-10-2019
+// Version History
+// 1.0. 10-10-2019 - Oiginal Release
+// 1.1. 23-11-2019 - Fixed original dashboard resize bug (linux with cairo libs only), battery status, gauge background 
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -121,7 +122,7 @@ enum {
 	ID_DBP_MAIN_ENGINE_WATER, ID_DBP_PORT_ENGINE_WATER, ID_DBP_STBD_ENGINE_WATER,
 	ID_DBP_MAIN_ENGINE_VOLTS, ID_DBP_PORT_ENGINE_VOLTS, ID_DBP_STBD_ENGINE_VOLTS,
 	ID_DBP_FUEL_TANK, ID_DBP_WATER_TANK, ID_DBP_OIL_TANK, ID_DBP_LIVEWELL_TANK,ID_DBP_GREY_TANK,ID_DBP_BLACK_TANK,
-	ID_DBP_RSA,
+	ID_DBP_RSA, ID_DBP_START_BATTERY_VOLTS, ID_DBP_HOUSE_BATTERY_VOLTS,
 	ID_DBP_LAST_ENTRY //this has a reference in one of the routines; defining a "LAST_ENTRY" and setting the reference to it, is one codeline less to change (and find) when adding new instruments :-)
 };
 
@@ -166,6 +167,10 @@ wxString GetInstrumentCaption(unsigned int id) {
 			return _("Black Waste");
 		case ID_DBP_RSA:
 			return _("Rudder Angle");
+		case ID_DBP_START_BATTERY_VOLTS:
+			return _("Start Battery");
+		case ID_DBP_HOUSE_BATTERY_VOLTS:
+			return _("House Battery");
 		default:
 			return _T("");
     }
@@ -199,6 +204,8 @@ void GetListItemForInstrument(wxListItem &item, unsigned int id) {
 		case ID_DBP_GREY_TANK:
 		case ID_DBP_BLACK_TANK:
 		case ID_DBP_RSA:
+		case ID_DBP_HOUSE_BATTERY_VOLTS:
+		case ID_DBP_START_BATTERY_VOLTS:
 			item.SetImage(1);
 			break;
 		default:
@@ -324,8 +331,8 @@ int dashboard_pi::Init(void) {
     // Is this the "jigsaw icon" ?? In anycase load a monochrome version of my icon
     if (GetActiveStyleName().Lower() != _T("traditional")) {
 	normalIcon = shareLocn + _T("engine-dashboard-bw.svg");
-	toggledIcon = shareLocn + _T("engine-dashboard-bw.svg");
-	rolloverIcon = shareLocn + _T("engine-dashboard-bw.svg");
+	toggledIcon = shareLocn + _T("engine-dashboard-bw-rollover.svg");
+	rolloverIcon = shareLocn + _T("engine-dashboard-bw-rollover.svg");
      }
 
     // Add toolbar icon (in SVG format)
@@ -387,8 +394,8 @@ bool dashboard_pi::DeInit(void) {
 void dashboard_pi::Notify()
 {
     if (wxDateTime::Now() > (watchDogTime + wxTimeSpan::Seconds(5))) {
-		// Zero all the instruments, Note OCPN_DBP_STC_RSA is the last entry in the enum
-		for (int i = 0, j = 0; j != OCPN_DBP_STC_RSA; i++) {
+		// Zero all the instruments, Note ID_DBP_LAST_ENTRY is the last entry in the enum
+		for (int i = 0, j = 0; i < ID_DBP_LAST_ENTRY; i++) {
 			j = 1 << i;
 			SendSentenceToAllInstruments(j,0.0f, "");
 		}
@@ -504,7 +511,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 		// Pressure Transducer				P		P (Pascal)
 		// Tachometer Transducer			T		R (RPM)
 		// Volume Transducer				V		P (percent capacity) rather than M (cubic metres)
-		// Voltage Transducer				U		V (volts)
+		// Voltage Transducer				U		V (volts) (for Battery Status, A = Amps)
 		// Generic Transducer				G		H (hours, I use this to display engine hours)
 		// Switch (Not yet implemented)		S		(no units), Names customised for Status 1 & 2 codes 
 
@@ -603,20 +610,36 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("V")) {
 							xdrunit = _T("Volts");
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
-							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("PORT")) {
-							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("STBD")) {
-							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, xdrdata, xdrunit);
+							}
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("STRT")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_VOLTS, xdrdata, xdrunit);
+							}
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("HOUS")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, xdrdata, xdrunit);
+							}
+						}
+						// Using "A" to indicate battery current
+						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("A")) {
+							xdrunit = _T("Amps");
+							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("STRT")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_AMPS, xdrdata, xdrunit);
+							}
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("HOUS")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, xdrdata, xdrunit);
 							}
 						}
 					}
 
 					// "G" Generic - Customised to use "H" as engine hours
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("G")) {
-						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("H")) {
+						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("H")) {	
 							xdrunit = _T("Hrs");
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
 								mainEngineHours = xdrdata;
@@ -1808,6 +1831,20 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_BLACK, 0, 100);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_HIGH, 1);
+				break;
+			case ID_DBP_START_BATTERY_VOLTS:
+				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY, GetInstrumentCaption(id), 
+				OCPN_DBP_STC_START_BATTERY_VOLTS, 8, 16);
+				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
+				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_GREEN_MID, 1);
+				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_START_BATTERY_AMPS, _T("%.1f"), DIAL_POSITION_INSIDE);
+				break;
+			case ID_DBP_HOUSE_BATTERY_VOLTS:
+				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY, GetInstrumentCaption(id), 
+				OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, 8, 16);
+				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
+				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_GREEN_MID, 1);
+				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, _T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_RSA:
 				instrument = new DashboardInstrument_RudderAngle(this, wxID_ANY, GetInstrumentCaption(id));
