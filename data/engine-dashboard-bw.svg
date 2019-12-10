@@ -21,7 +21,7 @@
    height="524.44745"><metadata
    id="metadata61"><rdf:RDF><cc:Work
        rdf:about=""><dc:format>image/svg+xml</dc:format><dc:type
-         rdf:resource="http://purl.org/dc/dcmitype/StillImage" /><dc:title></dc:title></cc:Work></rdf:RDF></metadata><defs
+         rdf:resource="http://purl.org/dc/dcmitype/StillImage" /><dc:title /></cc:Work></rdf:RDF></metadata><defs
    id="defs59">
 	
 </defs><sodipodi:namedview
@@ -37,8 +37,8 @@
    inkscape:window-height="713"
    id="namedview57"
    showgrid="false"
-   inkscape:zoom="0.4609375"
-   inkscape:cx="529.07117"
+   inkscape:zoom="0.5"
+   inkscape:cx="483.51185"
    inkscape:cy="204.93563"
    inkscape:window-x="67"
    inkscape:window-y="27"
@@ -49,14 +49,14 @@
    fit-margin-right="0"
    fit-margin-bottom="0" />
 <rect
-   style="fill:#282828;fill-opacity:1;stroke:#0a0a0a;stroke-width:1.60000002;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+   style="fill:#282828;fill-opacity:1;stroke:#0a0a0a;stroke-width:0.34235498;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
    id="rect841"
-   width="596.61017"
-   height="522.84747"
-   x="0.80000001"
-   y="0.80000001" /><g
+   width="127.65778"
+   height="111.87464"
+   x="235.27618"
+   y="206.28641" /><g
    id="g6"
-   transform="translate(31.172861,-3.7423791)"
+   transform="matrix(0.21397186,0,0,0.21397186,241.77513,205.31447)"
    style="fill:#b4b4b4;fill-opacity:1">
 	<g
    id="g4"
@@ -70,7 +70,7 @@
 </g>
 <g
    id="g10"
-   transform="translate(31.172861,-5.9118691)"
+   transform="matrix(0.21397186,0,0,0.21397186,241.77513,204.85026)"
    style="fill:#b4b4b4;fill-opacity:1">
 		<path
    inkscape:connector-curvature="0"
@@ -80,7 +80,7 @@
 	</g>
 <g
    id="g18"
-   transform="translate(37.681341,-5.9118691)"
+   transform="matrix(0.21397186,0,0,0.21397186,243.16776,204.85026)"
    style="fill:#b4b4b4;fill-opacity:1">
 	<g
    id="g16"
@@ -94,7 +94,7 @@
 </g>
 <g
    id="g24"
-   transform="translate(26.833881,-1.5728891)"
+   transform="matrix(0.21397186,0,0,0.21397186,240.84671,205.77868)"
    style="fill:#b4b4b4;fill-opacity:1">
 	<g
    id="g22"
