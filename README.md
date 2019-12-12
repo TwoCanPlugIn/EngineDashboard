@@ -74,13 +74,13 @@ This plugin builds outside of the OpenCPN source tree
 
 For both Windows and Linux, refer to the OpenCPN developer manual for details regarding other requirements such as git, cmake and wxWidgets.
 
-For Windows you must place opencpn.lib into the twocan_pi/build directory to be able to link the plugin DLL. opencpn.lib can be obtained from your local OpenCPN build, or alternatively downloaded from http://sourceforge.net/projects/opencpnplugins/files/opencpn_lib/
+For Windows you must place opencpn.lib into the engine\_dashboard\_pi/build directory to be able to link the plugin DLL. opencpn.lib can be obtained from your local OpenCPN build, or alternatively downloaded from http://sourceforge.net/projects/opencpnplugins/files/opencpn_lib/
 
 Build Commands
 --------------
- mkdir engine_dashboard_pi/build
+ mkdir engine\_dashboard_pi/build
 
- cd engine_dashboard_pi/build
+ cd engine\_dashboard_pi/build
 
  cmake ..
 
@@ -105,11 +105,18 @@ Windows: Run the resulting packagename.exe installation package
 Linux: Install the resulting installation package with the appropriate Package Manager.
 For example with Ubuntu: sudo dpkg -i packagename.arch.deb (where arch is the cpu architecture such as amd64)
 
+For users who do not wish to compile the plugin, prebuilt installation programs can be found in the prebuilt directory.
+
+| Platform | Executable|
+|----------|-----------|
+|Windows | engine\_dashboard_pi-1.1.0-ov50-win32.exe  |
+|Raspberry Pi (Stretch) | engine\_dashboard\_pi\_1.1.0-1_armhf.deb |
+|Ubuntu (18 LTS) |engine\_dashboard\_pi\_1.1.0-1_amd64.deb|
+
 Problems
 --------
 
 Please send bug reports/questions/comments to the opencpn forum or via email to twocanplugin@hotmail.com
-
 
 License
 -------
