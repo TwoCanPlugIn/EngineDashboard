@@ -3,11 +3,11 @@
 // 
 // Modified the existing dashboard plugin to create an "Engine Dashboard"
 // Parses NMEA 0183 RSA, RPM & XDR sentences and displays Engine RPM, Oil Pressure, Water Temperature, 
-// Alternator Voltage, Engine Hours andFluid Levels in a dashboard
+// Alternator Voltage, Engine Hours, Fluid Levels and Battery Status in a dashboard
 //
-// Version 1.0
-// 10-10-2019
-// 
+// Version History
+// 1.0. 10-10-2019 - Oiginal Release
+// 1.1. 23-11-2019 - Fixed original dashboard resize bug (linux with cairo libs only), battery status, gauge background 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
 
@@ -218,6 +218,39 @@ void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
 		dc->SetPen(pen);
 		double angle1 = deg2rad(45); // 45
 		double angle2 = deg2rad(12); // 45 - 1/8 of 270
+		int radi = m_radius - 1 - penwidth;
+		wxCoord x1 = m_cx + ((radi)* cos(angle1));
+		wxCoord y1 = m_cy + ((radi)* sin(angle1));
+		wxCoord x2 = m_cx + ((radi)* cos(angle2));
+		wxCoord y2 = m_cy + ((radi)* sin(angle2));
+		dc->DrawArc(x1, y1, x2, y2, m_cx, m_cy);
+
+		// Some platforms have trouble with transparent pen.
+		// so we simply draw arcs for the outer ring.
+		GetGlobalColor(_T("DASHF"), &cl);
+		pen.SetWidth(penwidth);
+		pen.SetColour(cl);
+		dc->SetPen(pen);
+		angle1 = deg2rad(0);
+		angle2 = deg2rad(180);
+		radi = m_radius - 1;
+
+		x1 = m_cx + ((radi)* cos(angle1));
+		y1 = m_cy + ((radi)* sin(angle1));
+		x2 = m_cx + ((radi)* cos(angle2));
+		y2 = m_cy + ((radi)* sin(angle2));
+		dc->DrawArc(x1, y1, x2, y2, m_cx, m_cy);
+		dc->DrawArc(x2, y2, x1, y1, m_cx, m_cy);
+
+	}
+	//  For battery status
+	else if (m_MarkerOption == DIAL_MARKER_GREEN_MID) {
+		pen.SetWidth(penwidth * 2);
+		GetGlobalColor(_T("DASHG"), &cl);
+		pen.SetColour(cl);
+		dc->SetPen(pen);
+		double angle1 = deg2rad(330); // 270 + 1/4 of 270
+		double angle2 = deg2rad(270);  
 		int radi = m_radius - 1 - penwidth;
 		wxCoord x1 = m_cx + ((radi)* cos(angle1));
 		wxCoord y1 = m_cy + ((radi)* sin(angle1));

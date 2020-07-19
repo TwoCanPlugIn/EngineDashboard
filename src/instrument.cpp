@@ -100,6 +100,7 @@ void DashboardInstrument::OnEraseBackground(wxEraseEvent& WXUNUSED(evt)) {
         // intentionally empty
 }
 
+
 void DashboardInstrument::OnPaint(wxPaintEvent& WXUNUSED(event)) {
     wxAutoBufferedPaintDC pdc(this);
     if (!pdc.IsOk()) {

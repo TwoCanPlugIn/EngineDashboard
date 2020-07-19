@@ -72,7 +72,8 @@ typedef enum {
 	DIAL_MARKER_REDGREEN,
 	DIAL_MARKER_REDGREENBAR,
 	DIAL_MARKER_WARNING_HIGH,
-	DIAL_MARKER_WARNING_LOW
+	DIAL_MARKER_WARNING_LOW,
+	DIAL_MARKER_GREEN_MID
 } DialMarkerOption;
 
 typedef enum {
@@ -86,6 +87,7 @@ typedef enum {
 
 extern double rad2deg(double angle);
 extern double deg2rad(double angle);
+
 //+------------------------------------------------------------------------------
 //|
 //| CLASS:

@@ -16,5 +16,4 @@ extern wxBitmap *_img_instrument;
 extern wxBitmap *_img_dashboard;
 extern wxBitmap *_img_engine;
 
-
 #endif /* _ICONS_H */
