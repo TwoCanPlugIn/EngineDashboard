@@ -128,40 +128,40 @@ add_definitions(-DPLUGIN_USE_SVG)
 ## Need api-16 for ocpn_plugin.h
 INCLUDE_DIRECTORIES(BEFORE ${PROJECT_SOURCE_DIR}/api-16)
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src/nmea0183 ${CMAKE_SOURCE_DIR}/src)
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/nmea0183/inc ${CMAKE_SOURCE_DIR}/inc)
 
 SET(SRC_DASHBOARD
-    src/dashboard_pi.h
+    #inc/dashboard_pi.h
     src/dashboard_pi.cpp
     src/instrument.cpp
-    src/instrument.h
+    #inc/instrument.h
     src/dial.cpp
-    src/dial.h
+    #inc/dial.h
     src/rudder_angle.cpp
-    src/rudder_angle.h
+    #inc/rudder_angle.h
     src/speedometer.cpp
-    src/speedometer.h
+    #inc/speedometer.h
     src/icons.cpp
-    src/icons.h
+    #inc/icons.h
 )
 
 
 SET(SRC_NMEA0183
-    src/nmea0183/nmea0183.cpp
-    src/nmea0183/nmea0183.hpp
-    src/nmea0183/response.hpp
-    src/nmea0183/response.cpp
-    src/nmea0183/sentence.hpp
-    src/nmea0183/sentence.cpp
-    src/nmea0183/talkerid.cpp
-    src/nmea0183/hexvalue.cpp
-    src/nmea0183/expid.cpp
-    src/nmea0183/rpm.hpp
-    src/nmea0183/rsa.cpp
-    src/nmea0183/rsa.hpp
-    src/nmea0183/rpm.cpp
-    src/nmea0183/xdr.cpp
-    src/nmea0183/xdr.hpp
+    nmea0183/src/nmea0183.cpp
+    #nmea0183/inc/nmea0183.hpp
+    nmea0183/src/response.cpp
+    #nmea0183/inc/response.hpp
+    nmea0183/src/sentence.cpp
+    #nmea0183/inc/sentence.hpp
+    nmea0183/src/rsa.cpp
+    #nmea0183/inc/rpm.hpp
+    nmea0183/src/rpm.cpp
+    #nmea0183/inc/rsa.hpp
+    nmea0183/src/xdr.cpp
+    #nmea0183/inc/xdr.hpp
+    nmea0183/src/talkerid.cpp
+    nmea0183/src/hexvalue.cpp
+    nmea0183/src/expid.cpp
 )
 
 

@@ -277,7 +277,7 @@ wxString MakeName() {
 
 // Dashboard Constructor
 // BUG BUG Consider renaming the class to engine_dashboard_pi to avoid confusion when programming other dashboard projects
-dashboard_pi::dashboard_pi(void *ppimgr) : opencpn_plugin_18(ppimgr), wxTimer(this) {
+dashboard_pi::dashboard_pi(void *ppimgr) : opencpn_plugin_116(ppimgr), wxTimer(this) {
     // Create the PlugIn icons
     initialize_images();
 }
@@ -317,27 +317,24 @@ int dashboard_pi::Init(void) {
     LoadConfig();
 
     // Scaleabe Vector Graphics (SVG) icons are stored in the following path.
-    wxString shareLocn = *GetpSharedDataLocation() +
-	_T("plugins") + wxFileName::GetPathSeparator() +
-	_T("engine_dashboard_pi") + wxFileName::GetPathSeparator() +
-	_T("data") + wxFileName::GetPathSeparator();
+	wxString iconFolder = GetPluginDataDir(PLUGIN_PACKAGE_NAME) + wxFileName::GetPathSeparator() + _T("data") + wxFileName::GetPathSeparator();
     
     // Load my own plugin icons (refer to the data directory in the repository)
-    wxString normalIcon = shareLocn + _T("engine-dashboard-colour.svg");
-    wxString toggledIcon = shareLocn + _T("engine-dashboard-colour.svg");
-    wxString rolloverIcon = shareLocn + _T("engine-dashboard-colour.svg");
+	wxString normalIcon = iconFolder + _T("engine-dashboard-colour.svg");
+	wxString toggledIcon = iconFolder + _T("engine-dashboard-colour.svg");
+	wxString rolloverIcon = iconFolder + _T("engine-dashboard-colour.svg");
      
     // For journeyman styles, we prefer the built-in raster icons which match the rest of the toolbar.
     // Is this the "jigsaw icon" ?? In anycase load a monochrome version of my icon
     if (GetActiveStyleName().Lower() != _T("traditional")) {
-	normalIcon = shareLocn + _T("engine-dashboard-bw.svg");
-	toggledIcon = shareLocn + _T("engine-dashboard-bw-rollover.svg");
-	rolloverIcon = shareLocn + _T("engine-dashboard-bw-rollover.svg");
+	normalIcon = iconFolder + _T("engine-dashboard-bw.svg");
+	toggledIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
+	rolloverIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
      }
 
     // Add toolbar icon (in SVG format)
     m_toolbar_item_id = InsertPlugInToolSVG(_T(""), normalIcon, rolloverIcon, toggledIcon, wxITEM_CHECK,
-	_("Engine Dashboard"), _T(""), NULL, DASHBOARD_TOOL_POSITION, 0, this);
+	_(PLUGIN_COMMON_NAME), _T(""), NULL, DASHBOARD_TOOL_POSITION, 0, this);
     
     // Having Loaded the config, then display each of the dashboards
     ApplyConfig();
@@ -411,19 +408,19 @@ void dashboard_pi::Notify()
 }
 
 int dashboard_pi::GetAPIVersionMajor() {
-    return MY_API_VERSION_MAJOR;
+	return OCPN_API_VERSION_MAJOR;
 }
 
 int dashboard_pi::GetAPIVersionMinor() {
-    return MY_API_VERSION_MINOR;
+	return OCPN_API_VERSION_MINOR;
 }
 
 int dashboard_pi::GetPlugInVersionMajor() {
-    return PLUGIN_VERSION_MAJOR;
+	return PLUGIN_VERSION_MAJOR;
 }
 
 int dashboard_pi::GetPlugInVersionMinor() {
-    return PLUGIN_VERSION_MINOR;
+	return PLUGIN_VERSION_MINOR;
 }
 
 // The plugin bitmap is loaded by the call to InitializeImages in icons.cpp
@@ -433,15 +430,15 @@ wxBitmap *dashboard_pi::GetPlugInBitmap() {
 }
 
 wxString dashboard_pi::GetCommonName() {
-    return _("Engine Dashboard");
+    return _(PLUGIN_COMMON_NAME);
 }
 
 wxString dashboard_pi::GetShortDescription() {
-    return _("Engine Dashboard PlugIn for OpenCPN");
+    return _(PLUGIN_SHORT_DESCRIPTION);
 }
 
 wxString dashboard_pi::GetLongDescription() {
-    return _("Engine Dashboard PlugIn for OpenCPN\nDisplays Engine Paramters (RPM, Oil, Coolant, Alternator, Hours) and fluid levels");
+    return _(PLUGIN_LONG_DESCRIPTION);
 }
 
 // Sends the data value from the parsed NMEA sentence to each gauge
