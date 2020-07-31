@@ -59,7 +59,7 @@ set(CLOUDSMITH_USER "steven-adler")
 # set this if your cloudsmith repository name does not match your git repository name 
 set(CLOUDSMITH_BASE_REPOSITORY "engineplugin")
 
-set(XML_INFO_URL "https://github.com/TwoCanPlugin/EngineDashboard")
+set(XML_INFO_URL "https://opencpn.org/wiki/dokuwiki/doku.php?id=opencpn:developer_manual:plugins:beta_plugins:engine-dash")
 set(XML_SUMMARY ${SHORT_DESCRIPTION})
 set(XML_DESCRIPTION ${LONG_DESCRIPTION})
 
