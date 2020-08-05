@@ -6,8 +6,9 @@
 // Alternator Voltage, Engine Hours andFluid Levels in a dashboard
 //
 // Version History
-// 1.0. 10-10-2019 - Oiginal Release
+// 1.0. 10-10-2019 - Original Release
 // 1.1. 23-11-2019 - Fixed original dashboard resize bug (linux with cairo libs only), battery status, gauge background 
+// 1.2. 01-08-2020 - Updated to OpenCPN 5.2 Plugin Manager and Continuous Integration (CI) build process
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -316,20 +317,20 @@ int dashboard_pi::Init(void) {
     // And load the configuration items
     LoadConfig();
 
-    // Scaleabe Vector Graphics (SVG) icons are stored in the following path.
+    // Scaleable Vector Graphics (SVG) icons are stored in the following path.
 	wxString iconFolder = GetPluginDataDir(PLUGIN_PACKAGE_NAME) + wxFileName::GetPathSeparator() + _T("data") + wxFileName::GetPathSeparator();
     
     // Load my own plugin icons (refer to the data directory in the repository)
 	wxString normalIcon = iconFolder + _T("engine-dashboard-colour.svg");
-	wxString toggledIcon = iconFolder + _T("engine-dashboard-colour.svg");
-	wxString rolloverIcon = iconFolder + _T("engine-dashboard-colour.svg");
+	wxString toggledIcon = iconFolder + _T("engine-dashboard-bw.svg");
+	wxString rolloverIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
      
     // For journeyman styles, we prefer the built-in raster icons which match the rest of the toolbar.
     // Is this the "jigsaw icon" ?? In anycase load a monochrome version of my icon
     if (GetActiveStyleName().Lower() != _T("traditional")) {
-	normalIcon = iconFolder + _T("engine-dashboard-bw.svg");
-	toggledIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
-	rolloverIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
+	    normalIcon = iconFolder + _T("engine-dashboard-bw.svg");
+	    toggledIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
+	    rolloverIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
      }
 
     // Add toolbar icon (in SVG format)
@@ -400,10 +401,10 @@ void dashboard_pi::Notify()
 
     // Force a repaint of each instrument
     for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-	DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
-	if (dashboard_window) {
-	    dashboard_window->Refresh();
-	}
+	    DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
+	    if (dashboard_window) {
+	        dashboard_window->Refresh();
+	    }
     }
 }
 
@@ -521,7 +522,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 					// Copy the NMEA 183 XDR Sentence data element to a variable
 					xdrdata = m_NMEA0183.Xdr.TransducerInfo[i].MeasurementData;
 					
-					// Now for each sentence, parse the transducer type, bane and units  to determine which gauge to send the data to
+					// Now for each sentence, parse the transducer type, name and units  to determine which gauge to send the data to
 
 					// "T" Engine RPM in unit "R" RPM
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("T")) {
@@ -531,13 +532,13 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 							// Set the units
 							xdrunit = _T("RPM");
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
-							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, xdrdata, xdrunit);
+							    SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("PORT")) {
-							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, xdrdata, xdrunit);
+							    SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("STBD")) {
-							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, xdrdata, xdrunit);
+							    SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, xdrdata, xdrunit);
 							}
 						}
 					}
