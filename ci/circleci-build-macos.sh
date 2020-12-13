@@ -63,3 +63,4 @@ pyvers=$(echo $pyvers | sed -E 's/[\.][0-9]+$//')    # drop last .z in x.y.z
 echo "export PATH=\$PATH:/Users/distiller/Library/Python/$pyvers/bin" \
     >> ~/.uploadrc
 
+
