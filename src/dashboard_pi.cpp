@@ -71,8 +71,8 @@ double portEngineHours;
 double stbdEngineHours;
 
 // If using NME 183 v4.11 or ShipModul/Maretron transducer names,
-// Whether we are a dual engne vessel and if so if instance 0 refers to port or starboard engine
-// if not a dual engine vessel, instance 0 refers to the main engine
+// Whether we are a dual engine vessel. If so instance 0 refers to port engine & instance 1 to the starboard engine
+// If not a dual engine vessel, instance 0 refers to the main engine.
 bool dualEngine; 
 
 // Watchdog timer, performs two functions, firstly refresh the dashboard every second,  
@@ -1604,6 +1604,9 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(wxWindow *parent, wxWindo
     m_pChoicePressureUnit->SetSelection(g_iDashPressureUnit);
     itemFlexGridSizer04->Add(m_pChoicePressureUnit, 0, wxALIGN_RIGHT | wxALL, 0);
 
+    wxStaticText* itemStaticTextDualEngine = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Transducer Naming"),
+            wxDefaultPosition, wxDefaultSize, 0);
+    itemFlexGridSizer04->Add(itemStaticTextDualEngine, 0, wxEXPAND | wxALL, border_size);
     m_pCheckBoxDualengine = new wxCheckBox(itemPanelNotebook02, wxID_ANY, _("Dual Engine Vessel"),
             wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
     m_pCheckBoxDualengine->SetValue(dualEngine);
