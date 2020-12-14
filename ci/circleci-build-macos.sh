@@ -1,30 +1,38 @@
 #!/usr/bin/env bash
 
-
 #
 # Build the  MacOS artifacts
+#
+
+# Fix broken ruby on the CircleCI image:
+if [ -n "$CIRCLECI" ]; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+fi
 
 set -xe
 
-# Return latest version of $1, optiomally using option $2
-pkg_version() { brew list --versions $2 $1 | tail -1 | awk '{print $2}'; }
-
-#
+set -o pipefail
 # Check if the cache is with us. If not, re-install brew.
-brew list --versions libexif || {
-    brew update-reset
-    # As indicated by warning message in CircleCI build log:
-    git -C "/usr/local/Homebrew/Library/Taps/homebrew/homebrew-core" \
-        fetch --unshallow
-    git -C "/usr/local/Homebrew/Library/Taps/homebrew/homebrew-cask" \
-        fetch --unshallow
-}
+brew list --versions libexif || brew update-reset
 
 for pkg in cairo cmake gettext libarchive libexif python wget; do
     brew list --versions $pkg || brew install $pkg || brew install $pkg || :
     brew link --overwrite $pkg || brew install $pkg
 done
 
+#wget -q http://opencpn.navnux.org/build_deps/wx312_opencpn50_macos109.tar.xz - unsupported link, replaced with below
+curl -o wx312B_opencpn50_macos109.tar.xz https://download.opencpn.org/s/rwoCNGzx6G34tbC/download
+tar xJf wx312B_opencpn50_macos109.tar.xz -C /tmp
+export PATH="/usr/local/opt/gettext/bin:$PATH"
+echo 'export PATH="/usr/local/opt/gettext/bin:$PATH"' >> ~/.bash_profile
+
+export MACOSX_DEPLOYMENT_TARGET=10.9
+
+#wget -q http://opencpn.navnux.org/build_deps/Packages.dmg - unsupported link, replaced with below
+#curl -o Packages.dmg https://download.opencpn.org/s/SneCR3z9XM3aRc6/download
+#hdiutil attach Packages.dmg
+#sudo installer -pkg "/Volumes/Packages 1.2.5/Install Packages.pkg" -target "/"
+# use brew to get Packages.pkg
 if brew list --cask --versions packages; then
     version=$(pkg_version packages '--cask')
     sudo installer \
@@ -34,33 +42,16 @@ else
     brew install --cask packages
 fi
 
-wget -q https://download.opencpn.org/s/rwoCNGzx6G34tbC/download \
-    -O /tmp/wx312B_opencpn50_macos109.tar.xz
-tar -C /tmp -xJf /tmp/wx312B_opencpn50_macos109.tar.xz 
-
-export MACOSX_DEPLOYMENT_TARGET=10.9
-
 rm -rf build && mkdir build && cd build
 cmake \
-  -DCMAKE_BUILD_TYPE=Release \
   -DwxWidgets_CONFIG_EXECUTABLE=/tmp/wx312B_opencpn50_macos109/bin/wx-config \
-  -DCMAKE_INSTALL_PREFIX="/" \
+  -DwxWidgets_CONFIG_OPTIONS="--prefix=/tmp/wx312B_opencpn50_macos109" \
+  -DCMAKE_INSTALL_PREFIX= \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9 \
+  "/" \
   ..
-make -j $(sysctl -n hw.physicalcpu) VERBOSE=1 tarball
+make -sj2
+make package
 
 make create-pkg
-
-# Install cloudsmith needed by upload script
-python3 -m pip install --user cloudsmith-cli
-
-# Required by git-push
-#python3 -m pip install --user cryptography
-
-# python3 installs in odd place not on PATH:
-pyvers=$(python3 --version | awk '{ print $2 }')
-pyvers=$(echo $pyvers | sed -E 's/[\.][0-9]+$//')    # drop last .z in x.y.z
-echo "export PATH=\$PATH:/Users/distiller/Library/Python/$pyvers/bin" \
-    >> ~/.uploadrc
-
 
