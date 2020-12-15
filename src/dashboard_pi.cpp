@@ -489,7 +489,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 			if (m_NMEA0183.Parse()) {
 				if (m_NMEA0183.Rpm.IsDataValid == NTrue) {
 					// Only display engine rpm 'E', not shaft rpm 'S'
-					if (m_NMEA0183.Rpm.Source == 'E') {
+					if (m_NMEA0183.Rpm.Source == _T("E") {
 						// Update Watchdog Timer
 						watchDogTime = wxDateTime::Now();
 						// Engine Numbering: 
@@ -661,13 +661,13 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
                                 // Ship Modul/Maretron Transducer Names
@@ -695,13 +695,13 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
                                 // Ship Modul/MaretronTransducer Names
@@ -771,7 +771,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, xdrdata, xdrunit);
 							}
 						}
-						// TwoCan uses "A" to indicate battery current
+						// TwoCan also uses "A" to indicate battery current
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("A")) {
 							xdrunit = _T("Amps");
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("STRT")) {
@@ -824,7 +824,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 						}
                         // NMEA 183 v4.11 Transducer Names, Note NMEA do not define Engine Hours
                         // So we'll just assume the same as per ShipModul
-                        if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("")) {	
+                        if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {	
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#1")) {
                                 xdrunit = _T("Hrs");
 								mainEngineHours = xdrdata;
@@ -842,7 +842,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 							}
 						}
                         // Ship Modul/Maretron Transducer Names (Note does not have a unit of measurement)
-                        if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("")) {	
+                        if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {	
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGHRS1")) {
                                 xdrunit = _T("Hrs");
 								mainEngineHours = xdrdata;
@@ -864,7 +864,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 
                 	// "V" Volume - Customised to use "P" as percent capacity
 					// instead of "M" as volume in cubic metres
-                    // Note that NMEA 183 v4.11 standard alo introduces 'P' as percent capacity
+                    // Note that NMEA 183 v4.11 standard now introduces 'P' as percent capacity
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("V")) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("P")) {
 							xdrunit = _T("Level");
@@ -908,7 +908,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 							}
 						}
 					}
-                    // NMEA 0184 v4.11 Standard for volume
+                    // NMEA 0184 v4.11 Standard for volume with percentage capacity
                     if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("E")) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("P")) {
 							xdrunit = _T("Level");
@@ -957,8 +957,6 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
         }
     }
 }
-
-
 
 // Not sure what this does or is used for. I guess we only install one toolbar item??
 int dashboard_pi::GetToolbarToolCount(void) {
