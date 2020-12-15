@@ -48,12 +48,12 @@ parameters:
     run_build_macos:
         type: boolean
         default: true
-    run_build_android_arm64:
-        type: boolean
-        default: true
-    run_build_android_armhf:
-        type: boolean
-        default: true
+#    run_build_android_arm64:
+#        type: boolean
+#        default: true
+#    run_build_android_armhf:
+#        type: boolean
+#        default: true
 
 jobs:
     build-armhf-stretch:
@@ -280,7 +280,7 @@ jobs:
             - run: ci/cloudsmith-upload.sh
     build-mingw:
         docker:
-        - image: fedora:33
+        - image: fedora:29
         environment:
         - OCPN_TARGET:  mingw
         - CLOUDSMITH_PKG_EXT: exe
@@ -307,32 +307,32 @@ jobs:
             condition: <<pipeline.parameters.run_workflow_deploy>>
             steps:
             - run: ci/cloudsmith-upload.sh
-    build-android-arm64:
-        docker:
-        - image: circleci/android:api-28-ndk
-        environment:
-        - OCPN_TARGET:  android-arm64
-        steps:
-        - checkout
-        - run: chmod a+x ci/*.sh
-        - run: bash ci/circleci-build-android-arm64.sh
-        - when:
-            condition: <<pipeline.parameters.run_workflow_deploy>>
-            steps:
-            - run: ci/cloudsmith-upload.sh
-    build-android-armhf:
-        docker:
-        - image: circleci/android:api-28-ndk
-        environment:
-        - OCPN_TARGET:  android-armhf
-        steps:
-        - checkout
-        - run: chmod a+x ci/*.sh
-        - run: bash ci/circleci-build-android-armhf.sh
-        - when:
-            condition: <<pipeline.parameters.run_workflow_deploy>>
-            steps:
-            - run: ci/cloudsmith-upload.sh
+#    build-android-arm64:
+#        docker:
+#        - image: circleci/android:api-28-ndk
+#        environment:
+#        - OCPN_TARGET:  android-arm64
+#        steps:
+#        - checkout
+#        - run: chmod a+x ci/*.sh
+#        - run: bash ci/circleci-build-android-arm64.sh
+#        - when:
+#            condition: <<pipeline.parameters.run_workflow_deploy>>
+#            steps:
+#            - run: ci/cloudsmith-upload.sh
+#    build-android-armhf:
+#        docker:
+#        - image: circleci/android:api-28-ndk
+#        environment:
+#        - OCPN_TARGET:  android-armhf
+#        steps:
+#        - checkout
+#        - run: chmod a+x ci/*.sh
+#        - run: bash ci/circleci-build-android-armhf.sh
+#        - when:
+#            condition: <<pipeline.parameters.run_workflow_deploy>>
+#            steps:
+#            - run: ci/cloudsmith-upload.sh
 workflows:
     build_1:
         when: <<pipeline.parameters.run_build_armhf_stretch>>
@@ -491,26 +491,26 @@ workflows:
                     - tmp
                 tags:
                     only: /.*/
-    build_15:
-        when: <<pipeline.parameters.run_build_android_arm64>>
-        jobs:
-        - build-android-arm64:
-            filters:
-                branches:
-                    ignore:
-                    - devel
-                    - tmp
-                tags:
-                    only: /.*/
-    build_16:
-        when: <<pipeline.parameters.run_build_android_armhf>>
-        jobs:
-        - build-android-armhf:
-            filters:
-                branches:
-                    ignore:
-                    - devel
-                    - tmp
-                tags:
-                    only: /.*/
+#    build_15:
+#        when: <<pipeline.parameters.run_build_android_arm64>>
+#        jobs:
+#        - build-android-arm64:
+#            filters:
+#                branches:
+#                    ignore:
+#                    - devel
+#                    - tmp
+#                tags:
+#                    only: /.*/
+#    build_16:
+#        when: <<pipeline.parameters.run_build_android_armhf>>
+#        jobs:
+#        - build-android-armhf:
+#            filters:
+#                branches:
+#                    ignore:
+#                    - devel
+#                    - tmp
+#                tags:
+#                    only: /.*/
 
