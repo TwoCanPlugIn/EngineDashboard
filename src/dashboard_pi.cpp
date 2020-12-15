@@ -489,7 +489,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 			if (m_NMEA0183.Parse()) {
 				if (m_NMEA0183.Rpm.IsDataValid == NTrue) {
 					// Only display engine rpm 'E', not shaft rpm 'S'
-					if (m_NMEA0183.Rpm.Source == _T("E") {
+					if (m_NMEA0183.Rpm.Source == _T("E")) {
 						// Update Watchdog Timer
 						watchDogTime = wxDateTime::Now();
 						// Engine Numbering: 
