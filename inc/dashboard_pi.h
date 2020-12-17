@@ -224,6 +224,7 @@ public:
     wxChoice *m_pChoiceDistanceUnit;
     wxChoice *m_pChoiceWindSpeedUnit;
 	wxCheckBox *m_pCheckBoxDualengine;
+	wxCheckBox *m_pCheckBoxTwentyFourVolts;
 
 private:
 	void UpdateDashboardButtonsState(void);

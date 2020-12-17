@@ -75,6 +75,9 @@ double stbdEngineHours;
 // If not a dual engine vessel, instance 0 refers to the main engine.
 bool dualEngine; 
 
+// If the voltmeter display is 12v or 24 volt.
+bool twentyFourVolts;
+
 // Watchdog timer, performs two functions, firstly refresh the dashboard every second,  
 // and secondly, if no data is received, set instruments to zero (eg. Engine switched off)
 // BUG BUG Zeroing instruments not yet implemented
@@ -580,7 +583,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("C")) {
 							if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
 								xdrunit = _T("\u00B0 C");
-                                // TwoCan plugin transducer names
+                                // TwoCan transducer naming
 								if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, xdrdata, xdrunit);
 								}
@@ -613,6 +616,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 							}
 							else if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
 								xdrunit = _T("\u00B0 F");
+                                // TwoCan Transducer naming 
 								if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
 								}
@@ -651,6 +655,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("P")) {
 							if (g_iDashPressureUnit == PRESSURE_BAR) {
 								xdrunit = _T("Bar");
+                                // TwoCan Transducer naming
 								if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
@@ -806,7 +811,8 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 
 					// "G" Generic - Customised to use "H" as engine hours
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("G")) {
-						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("H")) {	
+                        // TwoCan uses "H" as unit of measurement 
+                        if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("H")) {	
 							xdrunit = _T("Hrs");
                             // TwoCan Plugin transducer naming
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
@@ -827,17 +833,17 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
                         if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {	
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#1")) {
                                 xdrunit = _T("Hrs");
-								mainEngineHours = xdrdata;
+								stbdEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 							}
 							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (!dualEngine)) {
                                 xdrunit = _T("Hrs");
-								portEngineHours = xdrdata;
+								mainEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 							}
 							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (dualEngine)) {
                                 xdrunit = _T("Hrs");
-								stbdEngineHours = xdrdata;
+								portEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
 							}
 						}
@@ -845,17 +851,17 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
                         if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {	
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGHRS1")) {
                                 xdrunit = _T("Hrs");
-								mainEngineHours = xdrdata;
+								stbdEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 							}
 							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGHRS0")) && (!dualEngine)) {
                                 xdrunit = _T("Hrs");
-								portEngineHours = xdrdata;
+								mainEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 							}
 							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGHRS0")) && (dualEngine)) {
                                 xdrunit = _T("Hrs");
-								stbdEngineHours = xdrdata;
+								portEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
 							}
                         }
@@ -1187,6 +1193,7 @@ bool dashboard_pi::LoadConfig(void) {
 		pConf->Read(_T("TemperatureUnit"), &g_iDashTemperatureUnit, TEMPERATURE_CELSIUS);
 		pConf->Read(_T("PressureUnit"), &g_iDashPressureUnit, PRESSURE_BAR);
         pConf->Read(_T("DualEngine"), &dualEngine, false);
+        pConf->Read(_T("TwentyFourVolt"), &twentyFourVolts, false);
 		
 		// Now retrieve the number of dashboard containers and their instruments
         int d_cnt;
@@ -1290,6 +1297,7 @@ bool dashboard_pi::SaveConfig(void) {
 	    pConf->Write(_T("TemperatureUnit"), g_iDashTemperatureUnit);
 	    pConf->Write(_T("PressureUnit"), g_iDashPressureUnit);
         pConf->Write(_T("DualEngine"), dualEngine);
+        pConf->Write(_T("TwentyFourVolt"), twentyFourVolts);
 
         pConf->Write(_T("DashboardCount"), (int) m_ArrayOfDashboardWindow.GetCount());
         for (unsigned int i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
@@ -1602,7 +1610,15 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(wxWindow *parent, wxWindo
     m_pChoicePressureUnit->SetSelection(g_iDashPressureUnit);
     itemFlexGridSizer04->Add(m_pChoicePressureUnit, 0, wxALIGN_RIGHT | wxALL, 0);
 
-    wxStaticText* itemStaticTextDualEngine = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Transducer Naming"),
+    wxStaticText* itemStaticTwentyFourVolts = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("12 or 24 volt DC systems "),
+            wxDefaultPosition, wxDefaultSize, 0);
+    itemFlexGridSizer04->Add(itemStaticTwentyFourVolts, 0, wxEXPAND | wxALL, border_size);
+    m_pCheckBoxTwentyFourVolts = new wxCheckBox(itemPanelNotebook02, wxID_ANY, _("24 volt DC"),
+            wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
+    m_pCheckBoxTwentyFourVolts->SetValue(twentyFourVolts);
+    itemFlexGridSizer04->Add(m_pCheckBoxTwentyFourVolts, 0, wxALIGN_RIGHT | wxALL, 0);
+
+    wxStaticText* itemStaticTextDualEngine = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Transducer names refer to port & starboard engines"),
             wxDefaultPosition, wxDefaultSize, 0);
     itemFlexGridSizer04->Add(itemStaticTextDualEngine, 0, wxEXPAND | wxALL, border_size);
     m_pCheckBoxDualengine = new wxCheckBox(itemPanelNotebook02, wxID_ANY, _("Dual Engine Vessel"),
@@ -1638,6 +1654,7 @@ void DashboardPreferencesDialog::SaveDashboardConfig(void) {
     g_iDashTemperatureUnit = m_pChoiceTemperatureUnit->GetSelection();
     g_iDashPressureUnit = m_pChoicePressureUnit->GetSelection();
     dualEngine = m_pCheckBoxDualengine->IsChecked();
+    twentyFourVolts = m_pCheckBoxTwentyFourVolts->IsChecked();
     
     if (curSel != -1) {
         DashboardWindowContainer *cont = m_Config.Item(curSel);
@@ -2057,21 +2074,21 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				break;
 			case ID_DBP_MAIN_ENGINE_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_VOLTS, 8, 16);
+					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_PORT_ENGINE_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_VOLTS, 8, 16);
+					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2,	DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_STBD_ENGINE_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_VOLTS, 8, 16);
+					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2,	DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
@@ -2114,14 +2131,14 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				break;
 			case ID_DBP_START_BATTERY_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY, GetInstrumentCaption(id), 
-				OCPN_DBP_STC_START_BATTERY_VOLTS, 8, 16);
+				OCPN_DBP_STC_START_BATTERY_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_GREEN_MID, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_START_BATTERY_AMPS, _T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_HOUSE_BATTERY_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY, GetInstrumentCaption(id), 
-				OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, 8, 16);
+				OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_GREEN_MID, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, _T("%.1f"), DIAL_POSITION_INSIDE);
