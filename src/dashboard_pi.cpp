@@ -71,16 +71,15 @@ double portEngineHours;
 double stbdEngineHours;
 
 // If using NME 183 v4.11 or ShipModul/Maretron transducer names,
-// Whether we are a dual engine vessel. If so instance 0 refers to port engine & instance 1 to the starboard engine
+// If we are a dual engine vessel, instance 0 refers to port engine & instance 1 to the starboard engine
 // If not a dual engine vessel, instance 0 refers to the main engine.
 bool dualEngine; 
 
-// If the voltmeter display is 12v or 24 volt.
+// If the voltmeter display range is for 12 or 24 volt systems.
 bool twentyFourVolts;
 
 // Watchdog timer, performs two functions, firstly refresh the dashboard every second,  
 // and secondly, if no data is received, set instruments to zero (eg. Engine switched off)
-// BUG BUG Zeroing instruments not yet implemented
 wxDateTime watchDogTime;
 
 #if !defined(NAN)
@@ -374,7 +373,7 @@ bool dashboard_pi::DeInit(void) {
 
     // Is watchdog timer started?
     if (IsRunning()) {
-	Stop(); 
+	    Stop(); 
     }
 
     // This appears to close each dashboard instance
@@ -1610,7 +1609,7 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(wxWindow *parent, wxWindo
     m_pChoicePressureUnit->SetSelection(g_iDashPressureUnit);
     itemFlexGridSizer04->Add(m_pChoicePressureUnit, 0, wxALIGN_RIGHT | wxALL, 0);
 
-    wxStaticText* itemStaticTwentyFourVolts = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("12 or 24 volt DC systems "),
+    wxStaticText* itemStaticTwentyFourVolts = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("12 or 24 volt range for voltage gauges"),
             wxDefaultPosition, wxDefaultSize, 0);
     itemFlexGridSizer04->Add(itemStaticTwentyFourVolts, 0, wxEXPAND | wxALL, border_size);
     m_pCheckBoxTwentyFourVolts = new wxCheckBox(itemPanelNotebook02, wxID_ANY, _("24 volt DC"),
@@ -1618,7 +1617,7 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(wxWindow *parent, wxWindo
     m_pCheckBoxTwentyFourVolts->SetValue(twentyFourVolts);
     itemFlexGridSizer04->Add(m_pCheckBoxTwentyFourVolts, 0, wxALIGN_RIGHT | wxALL, 0);
 
-    wxStaticText* itemStaticTextDualEngine = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Transducer names refer to port & starboard engines"),
+    wxStaticText* itemStaticTextDualEngine = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("For dual engines, instance 0 is the port engine\nand instance 1 is the starboard engine.\nFor single engines, instance 0 is the main engine"),
             wxDefaultPosition, wxDefaultSize, 0);
     itemFlexGridSizer04->Add(itemStaticTextDualEngine, 0, wxEXPAND | wxALL, border_size);
     m_pCheckBoxDualengine = new wxCheckBox(itemPanelNotebook02, wxID_ANY, _("Dual Engine Vessel"),
