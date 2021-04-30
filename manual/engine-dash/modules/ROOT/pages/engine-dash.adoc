@@ -1,0 +1,206 @@
+== Engine Dashboard
+
+image:engine32.png[]
+
+by Steven Adler [Stevead]
+
+https://github.com/twoCanPlugin/EngineDashboard[GitHub Repository]
+
+The Engine Dashboard Plugin displays engine parameters, fluid levels and
+battery status in OpenCPN. It accepts NMEA 0183 RPM (Revolutions), RSA
+(Rudder Sensor Angle) and XDR (Transducer Measurement) sentences as its
+input. For sailors with NMEA2000® engine and tank sensors, any release
+of the TwoCan plugin later then version 1.6 can convert the appropriate
+messages from NMEA2000® networks to their NMEA 0183 equivalents which
+can then be displayed by the Engine Dashboard.
+
+The Engine Dashboard displays the following data:
+
+Engine RPM, Oil Pressure, Coolant Temperature, Engine Hours & Alternator
+Voltage for either single or dual engine vessels.
+
+Fluid levels for Fuel, Water, Oil, Live Well, Grey and Black Waste.
+
+Battery status (voltage and current) for the Start and House batteries.
+
+and Rudder Angle.
+
+It supports both dual and single engine vessels, can display voltage
+ranges for either 12 or 24 volts DC systems and supports a user
+configurable maximum RPM range.
+
+image:engine02.png[]
+
+The engine dashboard consumes a subset of NMEA 0183 sentences. For
+engine speed it may use either RPM or XDR sentences. For Rudder Angle it
+uses RSA sentences. For XDR sentences, it supports three different
+transducer naming formats:
+
+*TwoCan Plugin*
+
+[cols=",,,,",options="header",]
+|===
+|Measurement |Transducer |Type |Measurement Unit |Transducer Name^1^
+|Engine RPM |T |R |RPM |MAIN, PORT or STBD
+
+|Oil pressure |P |P |Pascals |MAIN, PORT or STBD
+
+|Water Temperature |C |C |Celsius |MAIN, PORT or STBD
+
+|Alternator Voltage |U |V |Volts |MAIN, PORT or STBD
+
+|Engine Hours |G |H |Hours^2^ |MAIN, PORT or STBD
+
+|Fluid Levels |V |P |Percent^3^ |FUEL, H2O, OIL, LIVE, GREY, BLK
+
+|Battery Voltage |U |V |Volts |STRT (Start or Main), HOUS (House or
+Auxilliary)
+
+|Battery Current |U |A |Amperes^4^ |STRT (Start or Main), HOUS (House or
+Auxilliary)
+|===
+
+*NMEA 0183 v 4.11*
+
+[.np_break]# #
+
+[cols=",,,,",options="header",]
+|===
+|Measurement |Transducer |Type |Measurement Unit |Transducer Name^1, 5^
+|Engine RPM |T |R |RPM |ENGINE#0, ENGINE#1
+
+|Oil pressure |P |P |Pascals |ENGINEOIL#0, ENGINEOIL#1
+
+|Water Temperature |C |C |Celsius |ENGINE#0, ENGINE#1
+
+|Alternator Voltage |U |V |Volts |ALTERNATOR#0, ALTERNATOR#1
+
+|Engine Hours |G |null |Hours |ENGINE#0, ENGINE#1
+
+|Fluid Levels |V |P |Percent |FUEL#0, FRESHWATER#0, OIL#0,
+LIVEWELLWATER#0, WASTEWATER#0, BLACKWATER#0
+
+|Fluid Levels |E |P |Percent |FUEL#0, FRESHWATER#0, OIL#0,
+LIVEWELLWATER#0, WASTEWATER#0, BLACKWATER#0
+
+|Battery Voltage |U |V |Volts |BATTERY#0 (Start), BATTERY#1 (House
+
+|Battery Current |I |A |Amperes |BATTERY#0 (Start), BATTERY#1 (House)
+|===
+
+[.np_break]# #
+
+*Shipmodul*
+
+[.np_break]# #
+
+[cols=",,,,",options="header",]
+|===
+|Measurement |Transducer |Type |Measurement Unit |Transducer Name^1, 5^
+|Engine RPM |T |R |RPM |ENGINE0, ENGINE1
+
+|Oil pressure |P |P |Pascals |ENGOILP0, ENGOILP1
+
+|Water Temperature |C |C |Celsius |ENGTEMP0, ENGTEMP1
+
+|Alternator Voltage |U |V |Volts |ALTVOLT0, ALTVOLT1
+
+|Engine Hours |G |null |Hours |ENGHRS0, ENGHRS1
+
+|Fluid Levels |V |P |Percent |FUEL0, FRESHWATER0, OIL0, LIVEWELL0,
+WASTEWATER0, BLACKWATER0
+
+|Fluid Levels |E |P |Percent |FUEL0, FRESHWATER0, OIL0, LIVEWELL0,
+WASTEWATER0, BLACKWATER0
+
+|Battery Voltage |U |V |Volts |BATVOLT0 (Start), BATVOLT1 (House)
+
+|Battery Current |I |A |Amperes |BATCURR0 (Start), BATCURR1 (House)
+|===
+
+[.np_break]# #
+
+1.These names are hardcoded in the Engine Dashboard and mate with the
+output produced by the TwoCan plugin, Shipmodul gateways and other
+gateways that support NMEA 0183 v4.11 transducer naming such as
+Actisense and Maretron. If users receive data from other sources with
+different transducer names then the NMEA Converter plugin could be used
+to modify these fields.
+
+2.The use of 'H' to indicate hours is a customised use of the generic
+transducer type.
+
+3.This originally deviated from the the standard volume measurement unit
+which is 'M' cubic metres, but is now supported by NMEA 0183 v4.11. In
+addition NMEA 0183 v4.11 also introduced the measurement unit 'E' using
+'P' as percentage capacity.
+
+4.Note this extends the usage of the “U” (Voltage Transducer) to include
+current measured in Amps.
+
+{empty}5. For single engine vessels, instance 0 (eg. ENGINE#0) refers to
+the main engine. For dual engine vessels instance 0 (eg. ENGINE#0)
+refers to the port engine and instance 1 (eg. ENGINE#1) refers to the
+starboard engine.
+
+The engine dashboard is installed from the OpenCPN Preferences dialog
+under the Plugins tab.
+
+image:engine01.png[]
+
+Similar to the existing Dashboard and Tactics-Dashboard plugins, the
+Engine Dashboard display can be configured to display a number of
+different gauges.
+
+image:engine03.png[]
+
+image:engine04.png[]
+
+Examples of NMEA 0183 XDR sentences that may be used by the engine
+plugin are:
+
+*TwoCan format:*
+
+$IIXDR,P,158300.00,P,MAIN,C,23.11,C,MAIN,U,13.86,V,MAIN*6A
+
+$IIXDR,T,804.50,R,MAIN*54
+
+$IIXDR,G,1.16,H,MAIN*52
+
+*NMEA 0183 v4.11 format:*
+
+$IIXDR,P,100300.00,P,ENGINEOIL#0,C,85.0,C,ENGINE#0,U,26.44,V,ALTERNATOR#0*09
+
+$IIXDR,P,123000.00,P,ENGINEOIL#1,C,95.0,C,ENGINE#1,U,25.00,V,ALTERNATOR#1*08
+
+$IIXDR,G,200,,ENGINE#0,G,250,,ENGINE#1*4A
+
+$IIXDR,T,800.0,R,ENGINE#0*73
+
+$IIXDR,T,900.0,R,ENGINE#1*73
+
+$IIXDR,U,27.5,V,BATTERY#0,U,26.0,V,BATTERY#1*4B
+
+$IIXDR,E,50.00,P,FUEL#0*79
+
+$IIXDR,E,75.00,P,FRESHWATER#0*7B
+
+*Shipmodul format:*
+
+$ERXDR,P,100300.00,P,ENGOILP0,C,85.0,C,ENGTEMP0,U,25.44,V,ALTVOLT0*32
+
+$ERXDR,G,300,,ENGHRS0*18
+
+$ERXDR,T,800.0,R,ENGINE0*47
+
+$ERXDR,U,25.4,V,BATVOLT0,I,4.5,A,BATCURR0*77
+
+$ERXDR,E,50.00,P,FUEL0*4D
+
+$ERXDR,E,75.00,P,FRESHWATER0*4F
+
+Note that the Engine Dashboard is agnostic to the two character NMEA
+talkerID prefix.
+
+If you have any problems, please post questions on the OpenCPN forum or
+send an email to twocanplugin@hotmail.com
