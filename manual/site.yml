@@ -5,8 +5,8 @@ site:
 
 content:
   sources:
-    - url: ../..
-      start_path: manual/engine-dash
+    - url: ..
+      start_path: manual
       branches: HEAD
       edit_url: https://github.com/opencpn-manuals/EngineDashboard/edit/master/{path}
 
