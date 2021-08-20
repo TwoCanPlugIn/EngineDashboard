@@ -1,7 +1,7 @@
 site:
   title: Engine Dashboard Manual
   url:  https://nowhere.net
-  start_page: engine-dash:ROOT:engine-dash.adoc
+  start_page: engine-dash:ROOT:index.adoc
 
 content:
   sources:
