@@ -1,4 +1,4 @@
-== Engine Dashboard
+= Engine Dashboard
 
 image:engine32.png[]
 
@@ -62,8 +62,6 @@ Auxilliary)
 
 *NMEA 0183 v 4.11*
 
-[.np_break]# #
-
 [cols=",,,,",options="header",]
 |===
 |Measurement |Transducer |Type |Measurement Unit |Transducer Name^1, 5^
@@ -88,11 +86,8 @@ LIVEWELLWATER#0, WASTEWATER#0, BLACKWATER#0
 |Battery Current |I |A |Amperes |BATTERY#0 (Start), BATTERY#1 (House)
 |===
 
-[.np_break]# #
-
 *Shipmodul*
 
-[.np_break]# #
 
 [cols=",,,,",options="header",]
 |===
@@ -117,8 +112,6 @@ WASTEWATER0, BLACKWATER0
 
 |Battery Current |I |A |Amperes |BATCURR0 (Start), BATCURR1 (House)
 |===
-
-[.np_break]# #
 
 1.These names are hardcoded in the Engine Dashboard and mate with the
 output produced by the TwoCan plugin, Shipmodul gateways and other
