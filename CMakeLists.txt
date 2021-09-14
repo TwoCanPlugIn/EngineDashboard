@@ -164,8 +164,7 @@ SET(SRC_NMEA0183
     nmea0183/src/expid.cpp
 )
 
-
-ADD_LIBRARY(${PACKAGE_NAME} SHARED ${SRC_DASHBOARD} ${SRC_NMEA0183} )
+TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${SRC_NMEA0183})
 
 ##
 ## ----- do not change next section - needed to configure build process ----- ##

@@ -15,22 +15,18 @@ endif(NOT APPLE)
 
 if(WIN32)
     if(MSVC)
-        # TARGET_LINK_LIBRARIES(${PACKAGE_NAME} gdiplus.lib glu32.lib)
-        target_link_libraries(${PACKAGE_NAME} ${OPENGL_LIBRARIES})
-        add_subdirectory(libs/ocpn-api)
-        target_link_libraries(${PACKAGE_NAME} ocpn::api)
-        message(STATUS "${CMLOC}Added ocpn-api for MSVC")
-    endif(MSVC)
+       target_link_libraries(${PACKAGE_NAME} ${OPENGL_LIBRARIES})
+        set(OPENCPN_IMPORT_LIB "${CMAKE_SOURCE_DIR}/api-16/opencpn.lib")
+		endif(MSVC)
 
     if(MINGW)
-        # assuming wxwidgets is compiled with unicode, this is needed for mingw headers
         add_definitions(" -DUNICODE")
         target_link_libraries(${PACKAGE_NAME} ${OPENGL_LIBRARIES})
         set(CMAKE_SHARED_LINKER_FLAGS "-L../buildwin")
-        add_subdirectory(libs/ocpn-api)
-        target_link_libraries(${PACKAGE_NAME} ocpn::api)
-        message(STATUS "${CMLOC}Added ocpn-api for MINGW")
+        set(OPENCPN_IMPORT_LIB "${CMAKE_SOURCE_DIR}/api-16/libopencpn.dll.a")
     endif(MINGW)
+
+    target_link_libraries(${PACKAGE_NAME} ${OPENCPN_IMPORT_LIB})
 endif(WIN32)
 
 if(UNIX)
