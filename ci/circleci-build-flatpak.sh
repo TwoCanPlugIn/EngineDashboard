@@ -1,48 +1,73 @@
 #!/usr/bin/env bash
 
 #
-# Build the flatpak artifacts. Uses docker to run Fedora on
-# in full-fledged VM; the actual build is done in the Fedora
-# container.
+# Build the flatpak artifacts.
 #
-# flatpak-builder can be run in a docker image. However, this
-# must then be run in privileged mode, which means it we need
-# a full VM to run it.
-#
+set -e
 
-# bailout on errors and echo commands.
-set -xe
-sudo apt-get -qq update
+MANIFEST=$(cd flatpak; ls org.opencpn.OpenCPN.Plugin*yaml)
+echo "Using manifest file: $MANIFEST"
+set -x
 
-#PLUGIN=bsb4
+sudo apt update
 
+
+# Install flatpak and flatpak-builder
 sudo apt install flatpak flatpak-builder
-
 flatpak remote-add --user --if-not-exists \
-    flathub https://flathub.org/repo/flathub.flatpakrepo
+    flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
+# aarch64 is built from beta branch, regular x86_64 from stable.
+# Both uses 20.08. Compatibility 18.08 builds are built for
+# x86_64 only using last known 18.08 commit on stable branch.
 
-if [ "$FLATPAK_BRANCH" = "beta" ]; then
-        flatpak install --user -y flathub org.freedesktop.Sdk//20.08 >/dev/null
-        flatpak remote-add --user --if-not-exists flathub-beta \
-            https://flathub.org/beta-repo/flathub-beta.flatpakrepo
-        flatpak install --user -y flathub-beta \
-            org.opencpn.OpenCPN >/dev/null
+commit_1808=959f5fd700f72e63182eabb9821b6aa52fb12189eddf72ccf99889977b389447
+FLATPAK_BRANCH=stable
+if dpkg-architecture --is arm64; then
+    flatpak install --user -y --noninteractive \
+        flathub org.freedesktop.Sdk//20.08
+    flatpak remote-add --user --if-not-exists flathub-beta \
+        https://flathub.org/beta-repo/flathub-beta.flatpakrepo
+    flatpak install --user -y --or-update  --noninteractive \
+        flathub-beta org.opencpn.OpenCPN
+    FLATPAK_BRANCH=beta
+elif [ -n "$BUILD_1808" ]; then
+    flatpak install --user -y --noninteractive \
+        flathub org.freedesktop.Sdk//18.08
+    flatpak install --user -y --or-update --noninteractive \
+        flathub  org.opencpn.OpenCPN
+    flatpak update --user -y --noninteractive --commit $commit_1808 \
+        org.opencpn.OpenCPN
+    sed -i '/sdk:/s/20.08/18.08/'  flatpak/org.opencpn.*.yaml
 else
-        flatpak install --user -y flathub org.freedesktop.Sdk//18.08 >/dev/null
-        flatpak remote-add --user --if-not-exists flathub \
-            https://flathub.org/repo/flathub.flatpakrepo
-        flatpak install --user -y flathub \
-            org.opencpn.OpenCPN >/dev/null
-        FLATPAK_BRANCH='stable'
+    flatpak install --user -y --noninteractive \
+        flathub org.freedesktop.Sdk//20.08
+    flatpak install --user -y --or-update --noninteractive \
+        flathub  org.opencpn.OpenCPN
 fi
 
-rm -rf build && mkdir build && cd build
-if [ "$FLATPAK_BRANCH" = 'beta' ]; then
-  cmake -DOCPN_FLATPAK_CONFIG=ON -DSDK_VER=20.08 ..
-else
-  cmake -DOCPN_FLATPAK_CONFIG=ON -DSDK_VER=18.08 ..
-fi
+# Patch the runtime version so it matches the nightly builds
+# or beta as appropriate.
+sed -i "/^runtime-version/s/:.*/: $FLATPAK_BRANCH/" flatpak/$MANIFEST
 
-make flatpak-build
-make flatpak-pkg
+# The flatpak checksumming needs python3:
+pyenv local $(pyenv versions | sed 's/*//' | awk '{print $1}' | tail -1)
+cp .python-version $HOME
+
+# Configure and build the plugin tarball and metadata.
+mkdir build; cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j $(nproc) VERBOSE=1 flatpak
+
+# Fix upload script if building 18.08:
+test -n "$BUILD_1808" && sed -i 's/20.08/18.08/' upload.sh
+
+# Restore patched file so the cache checksumming is ok.
+git checkout ../flatpak/$MANIFEST
+
+# Install cloudsmith and cryptography, required by upload script and git-push
+python3 -m pip install -q --user --upgrade pip
+python3 -m pip install -q --user cloudsmith-cli cryptography
+
+# python install scripts in ~/.local/bin, teach upload.sh to use this in PATH
+echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.uploadrc
