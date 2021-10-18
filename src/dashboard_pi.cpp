@@ -11,6 +11,8 @@
 // 1.2. 01-08-2020 - Updated to OpenCPN 5.2 Plugin Manager and Continuous Integration (CI) build process
 // 1.3. 20-12-2020 - Add support for additional transducer names
 // 1.4. 10-10-2021 - Support lower/camel/upper case transducer names
+//                 - Additional Fuel & Water tanks (for NMEA 0183 V4.11 standard names, Eg. FreshWater#2)
+//                 - Tank level & battery voltage gauges are no longer zeroed when the engine is off
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -81,7 +83,8 @@ bool twentyFourVolts;
 
 // Watchdog timer, performs two functions, firstly refresh the dashboard every second,  
 // and secondly, if no data is received, set instruments to zero (eg. Engine switched off)
-wxDateTime watchDogTime;
+wxDateTime engineWatchDog;
+wxDateTime tankLevelWatchDog;
 
 #if !defined(NAN)
 static const long long lNaN = 0xfff8000000000000;
@@ -131,9 +134,11 @@ enum {
 	ID_DBP_MAIN_ENGINE_OIL, ID_DBP_PORT_ENGINE_OIL, ID_DBP_STBD_ENGINE_OIL,
 	ID_DBP_MAIN_ENGINE_WATER, ID_DBP_PORT_ENGINE_WATER, ID_DBP_STBD_ENGINE_WATER,
 	ID_DBP_MAIN_ENGINE_VOLTS, ID_DBP_PORT_ENGINE_VOLTS, ID_DBP_STBD_ENGINE_VOLTS,
-	ID_DBP_FUEL_TANK, ID_DBP_WATER_TANK, ID_DBP_OIL_TANK, ID_DBP_LIVEWELL_TANK,ID_DBP_GREY_TANK,ID_DBP_BLACK_TANK,
-	ID_DBP_RSA, ID_DBP_START_BATTERY_VOLTS, ID_DBP_HOUSE_BATTERY_VOLTS,
-	ID_DBP_START_BATTERY_TEMP, ID_DBP_HOUSE_BATTERY_TEMP, ID_DBP_LAST_ENTRY //this has a reference in one of the routines; defining a "LAST_ENTRY" and setting the reference to it, is one codeline less to change (and find) when adding new instruments :-)
+	ID_DBP_FUEL_TANK_01, ID_DBP_WATER_TANK_01, ID_DBP_OIL_TANK, ID_DBP_LIVEWELL_TANK,
+	ID_DBP_GREY_TANK,ID_DBP_BLACK_TANK,	ID_DBP_RSA, ID_DBP_START_BATTERY_VOLTS, 
+	ID_DBP_START_BATTERY_AMPS, ID_DBP_HOUSE_BATTERY_VOLTS, ID_DBP_HOUSE_BATTERY_AMPS, 
+	ID_DBP_FUEL_TANK_02, ID_DBP_WATER_TANK_02, ID_DBP_WATER_TANK_03,
+	ID_DBP_LAST_ENTRY //this has a reference in one of the routines; defining a "LAST_ENTRY" and setting the reference to it, is one codeline less to change (and find) when adding new instruments :-)
 };
 
 // Retrieve a caption for each instrument
@@ -163,10 +168,16 @@ wxString GetInstrumentCaption(unsigned int id) {
 			return _("Port Alternator Voltage");
 		case ID_DBP_STBD_ENGINE_VOLTS:
 			return _("Stbd Alternator Voltage");
-		case ID_DBP_FUEL_TANK:
-			return _("Fuel");
-		case ID_DBP_WATER_TANK:
-			return _("Water");
+		case ID_DBP_FUEL_TANK_01:
+			return _("Fuel 1");
+		case ID_DBP_WATER_TANK_01:
+			return _("Water 1");
+		case ID_DBP_FUEL_TANK_02:
+			return _("Fuel 2");
+		case ID_DBP_WATER_TANK_02:
+			return _("Water 2");
+		case ID_DBP_WATER_TANK_03:
+			return _("Water 3");
 		case ID_DBP_OIL_TANK:
 			return _("Oil");
 		case ID_DBP_LIVEWELL_TANK:
@@ -181,12 +192,12 @@ wxString GetInstrumentCaption(unsigned int id) {
 			return _("Start Battery Voltage");
 		case ID_DBP_HOUSE_BATTERY_VOLTS:
 			return _("House Battery Voltage");
-        case ID_DBP_START_BATTERY_TEMP:
-			return _("Start Battery Temperature");
-		case ID_DBP_HOUSE_BATTERY_TEMP:
-			return _("House Battery Temperature");
+        case ID_DBP_START_BATTERY_AMPS:
+			return _("Start Battery Current");
+		case ID_DBP_HOUSE_BATTERY_AMPS:
+			return _("House Battery Current");
 		default:
-			return _T("");
+			return _("");
     }
 }
 
@@ -211,8 +222,11 @@ void GetListItemForInstrument(wxListItem &item, unsigned int id) {
 		case ID_DBP_MAIN_ENGINE_VOLTS:
 		case ID_DBP_PORT_ENGINE_VOLTS:
 		case ID_DBP_STBD_ENGINE_VOLTS:
-		case ID_DBP_FUEL_TANK:
-		case ID_DBP_WATER_TANK:
+		case ID_DBP_FUEL_TANK_01:
+		case ID_DBP_FUEL_TANK_02:
+		case ID_DBP_WATER_TANK_01:
+		case ID_DBP_WATER_TANK_02:
+		case ID_DBP_WATER_TANK_03:
 		case ID_DBP_OIL_TANK:
 		case ID_DBP_LIVEWELL_TANK:
 		case ID_DBP_GREY_TANK:
@@ -220,8 +234,8 @@ void GetListItemForInstrument(wxListItem &item, unsigned int id) {
 		case ID_DBP_RSA:
 		case ID_DBP_HOUSE_BATTERY_VOLTS:
 		case ID_DBP_START_BATTERY_VOLTS:
-        case ID_DBP_HOUSE_BATTERY_TEMP:
-		case ID_DBP_START_BATTERY_TEMP:
+        case ID_DBP_HOUSE_BATTERY_AMPS:
+		case ID_DBP_START_BATTERY_AMPS:
 			item.SetImage(1);
 			break;
 		default:
@@ -406,14 +420,30 @@ bool dashboard_pi::DeInit(void) {
 // Called for each timer tick, ensures valid data and refreshes each display
 void dashboard_pi::Notify()
 {
-    if (wxDateTime::Now() > (watchDogTime + wxTimeSpan::Seconds(5))) {
-		// Zero all the instruments, Note ID_DBP_LAST_ENTRY is the last entry in the enum
-		// However just go to the tanks, so that they can be read even if th eengine is off
-		for (int i = 0, j = 0; i < ID_DBP_FUEL_TANK; i++) {
+    if (wxDateTime::Now() > (engineWatchDog + wxTimeSpan::Seconds(5))) {
+		// Zero the engine instruments
+		// We goto ID_DBP_FUEL_TANK_01 + 3, because there are three additional values
+		// in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
+		// do not have their own gauge, but populate the engine rpm gauges
+		// The tank levels start from OCPN_DBP_STC_TANK_LEVEL_FUEL_01 which is 
+		// defined as equal to 1 << 15,
+		for (int i = 0, j = 0; i < ID_DBP_FUEL_TANK_01 + 3; i++) {
 			j = 1 << i;
 			SendSentenceToAllInstruments(j,0.0f, "");
 		}
     }
+
+	if (wxDateTime::Now() > (tankLevelWatchDog + wxTimeSpan::Seconds(5))) {
+		// Zero the tank instruments
+		// We goto IDP_LAST_ENTRY + 3, because there are three additional values
+		// in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
+		// do not have their own gauge, but populate the engine rpm gauges
+		for (int i = ID_DBP_FUEL_TANK_01, j = 0; i < ID_DBP_LAST_ENTRY + 3; i++) {
+			j = 1 << i;
+			SendSentenceToAllInstruments(j, 0.0f, "");
+		}
+	}
+
 
     // Force a repaint of each instrument
     for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
@@ -495,7 +525,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 					// Only display engine rpm 'E', not shaft rpm 'S'
 					if (m_NMEA0183.Rpm.Source == _T("E")) {
 						// Update Watchdog Timer
-						watchDogTime = wxDateTime::Now();
+						engineWatchDog = wxDateTime::Now();
 						// Engine Numbering: 
 						// 0 = Mid-line, Odd = Starboard, Even = Port (numbered from midline)
 						switch (m_NMEA0183.Rpm.EngineNumber) {
@@ -543,7 +573,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("T")) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("R")) {
 							// Update Watchdog timer
-							watchDogTime = wxDateTime::Now();
+							engineWatchDog = wxDateTime::Now();
 							// Set the units
 							xdrunit = _T("RPM");
                              // TwoCan plugin transducer names
@@ -874,13 +904,15 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
                     // Note that NMEA 183 v4.11 standard now introduces 'P' as percent capacity
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("V")) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("P")) {
+							// Update Watchdog Timer
+							tankLevelWatchDog = wxDateTime::Now();
 							xdrunit = _T("Level");
                             // TwoCan Plugin Transducer Names
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("FUEL")) {
-								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("H2O")) {
-								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("OIL")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
@@ -896,10 +928,19 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 							}
                             // NMEA 183 v4.11 Transducer Names
                             if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#0")) {
-								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, xdrdata, xdrunit);
+							}
+							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#1")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#0")) {
-								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, xdrdata, xdrunit);
+							}
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#1")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, xdrdata, xdrunit);
+							}
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#2")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("OIL#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
@@ -918,13 +959,24 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
                     // NMEA 0184 v4.11 Standard for volume with percentage capacity
                     if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("E")) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("P")) {
+							// Update Watchdog Timer
+							tankLevelWatchDog = wxDateTime::Now();
 							xdrunit = _T("Level");
                             // NMEA 183 v4.11 Transducer Names
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#0")) {
-								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, xdrdata, xdrunit);
+							}
+							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#1")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#0")) {
-								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, xdrdata, xdrunit);
+							}
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#1")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, xdrdata, xdrunit);
+							}
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#2")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("OIL#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
@@ -940,10 +992,19 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 							}
                             // Ship Modul/Martron Transducer Names
                             if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL0")) {
-								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, xdrdata, xdrunit);
+							}
+							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL1")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER0")) {
-								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER, xdrdata, xdrunit);
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, xdrdata, xdrunit);
+							}
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER1")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, xdrdata, xdrunit);
+							}
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER2")) {
+								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("OIL0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
@@ -2094,17 +2155,35 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
-			case ID_DBP_FUEL_TANK:
+			case ID_DBP_FUEL_TANK_01:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL, 0, 100);
+					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_01, 0, 100);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5,	DIAL_MARKER_WARNING_LOW, 1);
 				break;
-			case ID_DBP_WATER_TANK:
+			case ID_DBP_WATER_TANK_01:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER, 0, 100);
+					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_01, 0, 100);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5,	DIAL_MARKER_WARNING_LOW, 1);
+				break;
+			case ID_DBP_FUEL_TANK_02:
+				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
+					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_02, 0, 100);
+				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
+				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_LOW, 1);
+				break;
+			case ID_DBP_WATER_TANK_02:
+				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
+					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_02, 0, 100);
+				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
+				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_LOW, 1);
+				break;
+			case ID_DBP_WATER_TANK_03:
+				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
+					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_03, 0, 100);
+				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
+				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_LOW, 1);
 				break;
 			case ID_DBP_OIL_TANK:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
