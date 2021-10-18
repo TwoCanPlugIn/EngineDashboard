@@ -126,46 +126,49 @@ add_definitions(-DPLUGIN_USE_SVG)
 ##endif(APPLE)
 
 ## Need api-16 for ocpn_plugin.h
-INCLUDE_DIRECTORIES(BEFORE ${PROJECT_SOURCE_DIR}libs/ocpn-api)
+INCLUDE_DIRECTORIES(BEFORE ${CMAKE_SOURCE_DIR}libs/ocpn-api)
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/nmea0183/inc ${CMAKE_SOURCE_DIR}/inc)
 
 SET(SRC_DASHBOARD
-    #inc/dashboard_pi.h
     src/dashboard_pi.cpp
     src/instrument.cpp
-    #inc/instrument.h
     src/dial.cpp
-    #inc/dial.h
     src/rudder_angle.cpp
-    #inc/rudder_angle.h
     src/speedometer.cpp
-    #inc/speedometer.h
-    src/icons.cpp
-    #inc/icons.h
-)
+    src/icons.cpp)
+
+SET(INC_DASHBOARD
+    inc/dashboard_pi.h
+    inc/instrument.h
+    inc/dial.h
+    inc/rudder_angle.h
+    inc/speedometer.h
+    inc/icons.h)
 
 
 SET(SRC_NMEA0183
-    nmea0183/src/nmea0183.cpp
-    #nmea0183/inc/nmea0183.hpp
+    nmea0183/src/nmea0183.cpp 
     nmea0183/src/response.cpp
-    #nmea0183/inc/response.hpp
     nmea0183/src/sentence.cpp
-    #nmea0183/inc/sentence.hpp
-    nmea0183/src/rsa.cpp
-    #nmea0183/inc/rpm.hpp
+    nmea0183/src/rsa.cpp    
     nmea0183/src/rpm.cpp
     #nmea0183/inc/rsa.hpp
     nmea0183/src/xdr.cpp
-    #nmea0183/inc/xdr.hpp
     nmea0183/src/talkerid.cpp
     nmea0183/src/hexvalue.cpp
     nmea0183/src/expid.cpp
-)
+    )
+
+SET(INC_NMEA0183
+    nmea0183/inc/nmea0183.hpp
+    nmea0183/inc/response.hpp
+    nmea0183/inc/sentence.hpp
+    nmea0183/inc/rpm.hpp
+    nmea0183/inc/xdr.hpp)
 
 
-TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${SRC_NMEA0183} )
+TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${INC_DASHBOARD} ${SRC_NMEA0183} ${INC_NMEA0183})
 
 ##
 ## ----- do not change next section - needed to configure build process ----- ##
