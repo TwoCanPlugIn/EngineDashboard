@@ -90,8 +90,8 @@ message(STATUS "${CMLOC}Build type: ${CMAKE_BUILD_TYPE}")
 
 
 project(${PACKAGE})
-
-include("cmake/PluginSetup.cmake")
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;")
+include("PluginSetup")
 
 ##
 ## ----- Modify section below if there are special requirements for the plugin ----- ##
@@ -106,7 +106,7 @@ option(Plugin_CXX11 "Use c++11" OFF)
 ## ----- do not change next section - needed to configure build process ----- ##
 ##
 
-include("cmake/PluginConfigure.cmake")
+include("PluginConfigure")
 
 ##
 ## ----- Change below to match project requirements for source, headers, etc. ----- ##
@@ -126,7 +126,7 @@ add_definitions(-DPLUGIN_USE_SVG)
 ##endif(APPLE)
 
 ## Need api-16 for ocpn_plugin.h
-INCLUDE_DIRECTORIES(BEFORE ${PROJECT_SOURCE_DIR}/api-16)
+INCLUDE_DIRECTORIES(BEFORE ${PROJECT_SOURCE_DIR}libs/ocpn-api)
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/nmea0183/inc ${CMAKE_SOURCE_DIR}/inc)
 
@@ -165,13 +165,13 @@ SET(SRC_NMEA0183
 )
 
 
-ADD_LIBRARY(${PACKAGE_NAME} SHARED ${SRC_DASHBOARD} ${SRC_NMEA0183} )
+TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${SRC_NMEA0183} )
 
 ##
 ## ----- do not change next section - needed to configure build process ----- ##
 ##
 
-include("cmake/PluginInstall.cmake")
-include("cmake/PluginLocalization.cmake")
-include("cmake/PluginPackage.cmake")
+include("PluginInstall")
+include("PluginLocalization")
+include("PluginPackage")
 
