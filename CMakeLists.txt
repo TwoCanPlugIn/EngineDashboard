@@ -126,7 +126,7 @@ add_definitions(-DPLUGIN_USE_SVG)
 ##endif(APPLE)
 
 ## Need api-16 for ocpn_plugin.h
-INCLUDE_DIRECTORIES(BEFORE ${CMAKE_SOURCE_DIR}libs/ocpn-api)
+INCLUDE_DIRECTORIES(BEFORE ${PROJECT_SOURCE_DIR}/libs/ocpn-api)
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/nmea0183/inc ${CMAKE_SOURCE_DIR}/inc)
 
@@ -168,7 +168,7 @@ SET(INC_NMEA0183
     nmea0183/inc/xdr.hpp)
 
 
-TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${INC_DASHBOARD} ${SRC_NMEA0183} ${INC_NMEA0183})
+TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${SRC_NMEA0183})
 
 ##
 ## ----- do not change next section - needed to configure build process ----- ##
