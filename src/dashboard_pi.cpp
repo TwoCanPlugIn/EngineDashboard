@@ -10,6 +10,7 @@
 // 1.1. 23-11-2019 - Fixed original dashboard resize bug (linux with cairo libs only), battery status, gauge background 
 // 1.2. 01-08-2020 - Updated to OpenCPN 5.2 Plugin Manager and Continuous Integration (CI) build process
 // 1.3. 20-12-2020 - Add support for additional transducer names
+// 1.4. 10-10-2021 - Support lower/camel/upper case transducer names
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -407,7 +408,8 @@ void dashboard_pi::Notify()
 {
     if (wxDateTime::Now() > (watchDogTime + wxTimeSpan::Seconds(5))) {
 		// Zero all the instruments, Note ID_DBP_LAST_ENTRY is the last entry in the enum
-		for (int i = 0, j = 0; i < ID_DBP_LAST_ENTRY; i++) {
+		// However just go to the tanks, so that they can be read even if th eengine is off
+		for (int i = 0, j = 0; i < ID_DBP_FUEL_TANK; i++) {
 			j = 1 << i;
 			SendSentenceToAllInstruments(j,0.0f, "");
 		}
@@ -555,23 +557,23 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 							    SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, xdrdata, xdrunit);
 							}
                             // NMEA 183 v4.11 transducer names
-                            else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#1")) {
+                            else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 							    SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, xdrdata, xdrunit);
 							}
-                            else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (!dualEngine)) {
+                            else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!dualEngine)) {
 							    SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, xdrdata, xdrunit);
 							}
-                            else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (dualEngine)) {
+                            else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
 							    SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, xdrdata, xdrunit);
 							}
                             // Ship Modul/Maretron transducer names
-                            else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE1")) {
+                            else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE1")) {
 							    SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, xdrdata, xdrunit);
 							}
-                            else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE0")) && (!dualEngine)) {
+                            else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (!dualEngine)) {
 							    SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, xdrdata, xdrunit);
 							}
-                            else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE0")) && (dualEngine)) {
+                            else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (dualEngine)) {
 							    SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, xdrdata, xdrunit);
 							}
 						}
@@ -593,23 +595,23 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, xdrdata, xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, xdrdata, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, xdrdata, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, xdrdata, xdrunit);
 								}
                                 // Ship Modul/Maretron Transducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGTEMP1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, xdrdata, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGTEMP0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, xdrdata, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGTEMP0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, xdrdata, xdrunit);
 								}
 							}
@@ -626,23 +628,23 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
 								}
                                 // Ship Modul/Maretron Transducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGTEMP1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGTEMP0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGTEMP0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
 								}
 							}
@@ -665,23 +667,23 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
                                 // Ship Modul/Maretron Transducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGOILP1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGOILP0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGOILP0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
 
@@ -699,23 +701,23 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINEOIL#0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
                                 // Ship Modul/MaretronTransducer Names
-                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGOILP1")) {
+                                else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGOILP0")) && (!dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
-                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGOILP0")) && (dualEngine)) {
+                                else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
 								}
 							}
@@ -743,35 +745,35 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, xdrdata, xdrunit);
 							}
                             // NMEA 183 v4.11 Transducer Names
-                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ALTERNATOR#1")) {
+                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#1")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, xdrdata, xdrunit);
 							}
-							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ALTERNATOR#0")) && (!dualEngine)) {
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (!dualEngine)) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, xdrdata, xdrunit);
 							}
-							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ALTERNATOR#0")) && (dualEngine)) {
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (dualEngine)) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BATTERY#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATTERY#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_VOLTS, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BATTERY#1")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATTERY#1")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, xdrdata, xdrunit);
 							}
                             // Ship Modul/Maretron Transducer Names
-                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ALTVOLT1")) {
+                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT1")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, xdrdata, xdrunit);
 							}
-							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ALTVOLT0")) && (!dualEngine)) {
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (!dualEngine)) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, xdrdata, xdrunit);
 							}
-							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ALTVOLT0")) && (dualEngine)) {
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (dualEngine)) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BATVOLT0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATVOLT0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_VOLTS, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BATVOLT1")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATVOLT1")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, xdrdata, xdrunit);
 							}
 						}
@@ -792,17 +794,17 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("A")) {
 							xdrunit = _T("Amps");
                             // NMEA 183 v4.11 Transducr Names
-                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BATTERY#0")) {
+                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATTERY#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_AMPS, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BATTERY#1")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATTERY#1")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, xdrdata, xdrunit);
 							}
                             // Ship Modul/Maretron Transducr Names
-                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BATCURR0")) {
+                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATCURR0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_AMPS, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BATCURR1")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATCURR1")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, xdrdata, xdrunit);
 							}
 						}
@@ -830,17 +832,17 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
                         // NMEA 183 v4.11 Transducer Names, Note NMEA do not define Engine Hours
                         // So we'll just assume the same as per ShipModul
                         if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {	
-							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#1")) {
+							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
                                 xdrunit = _T("Hrs");
 								stbdEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 							}
-							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (!dualEngine)) {
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!dualEngine)) {
                                 xdrunit = _T("Hrs");
 								mainEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 							}
-							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGINE#0")) && (dualEngine)) {
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
                                 xdrunit = _T("Hrs");
 								portEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
@@ -848,17 +850,17 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 						}
                         // Ship Modul/Maretron Transducer Names (Note does not have a unit of measurement)
                         if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {	
-							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGHRS1")) {
+							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS1")) {
                                 xdrunit = _T("Hrs");
 								stbdEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 							}
-							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGHRS0")) && (!dualEngine)) {
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (!dualEngine)) {
                                 xdrunit = _T("Hrs");
 								mainEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 							}
-							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ENGHRS0")) && (dualEngine)) {
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (dualEngine)) {
                                 xdrunit = _T("Hrs");
 								portEngineHours = xdrdata;
 								SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
@@ -893,22 +895,22 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, xdrdata, xdrunit);
 							}
                             // NMEA 183 v4.11 Transducer Names
-                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("FUEL#0")) {
+                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("FRESHWATER#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("OIL#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("OIL#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("LIVEWELLWATER#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("LIVEWELLWATER#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_LIVEWELL, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("WASTEWATER#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("WASTEWATER#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_GREY, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BLACKWATER#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BLACKWATER#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, xdrdata, xdrunit);
 							}
 						}
@@ -918,41 +920,41 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("P")) {
 							xdrunit = _T("Level");
                             // NMEA 183 v4.11 Transducer Names
-							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("FUEL#0")) {
+							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("FRESHWATER#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("OIL#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("OIL#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("LIVEWELLWATER#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("LIVEWELLWATER#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_LIVEWELL, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("WASTEWATER#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("WASTEWATER#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_GREY, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BLACKWATER#0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BLACKWATER#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, xdrdata, xdrunit);
 							}
                             // Ship Modul/Martron Transducer Names
-                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("FUEL0")) {
+                            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("FRESHWATER0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("OIL0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("OIL0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("LIVEWELL0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("LIVEWELL0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_LIVEWELL, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("WASTEWATER0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("WASTEWATER0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_GREY, xdrdata, xdrunit);
 							}
-							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("BLACKWATER0")) {
+							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BLACKWATER0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, xdrdata, xdrunit);
 							}
                         }
