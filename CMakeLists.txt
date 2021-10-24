@@ -34,12 +34,12 @@ set(TITLE_NAME "ENGINEDASHBOARD")
 set(PACKAGE_CONTACT "twocanplugin@hotmail.com")
 set(PACKAGE "engine_dashboard")
 set(SHORT_DESCRIPTION "Engine Dashboard, Displays Engine parameters.")
-set(LONG_DESCRIPTION "Engine Dashboard, Displays Engine RPM, Oil Pressure, Water Temperature, Alternator Output and tank levels.") 
+set(LONG_DESCRIPTION "Engine Dashboard, Displays Engine RPM, Oil pressure, Water temperature, Alternator output and Tank levels.") 
 set(VERSION_MAJOR "1")
-set(VERSION_MINOR "3")
+set(VERSION_MINOR "4")
 set(VERSION_PATCH "0")
 set(VERSION_TWEAK "0")
-set(VERSION_DATE "07/12/2020")
+set(VERSION_DATE "20/10/2021")
 set(OCPN_MIN_VERSION "ov50")
 set(OCPN_API_VERSION_MAJOR "1")
 set(OCPN_API_VERSION_MINOR "16")
@@ -128,7 +128,7 @@ add_definitions(-DPLUGIN_USE_SVG)
 ## Need api-16 for ocpn_plugin.h
 INCLUDE_DIRECTORIES(BEFORE ${PROJECT_SOURCE_DIR}/libs/ocpn-api)
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/nmea0183/inc ${CMAKE_SOURCE_DIR}/inc)
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/nmea0183/inc ${CMAKE_SOURCE_DIR}/inc ${CMAKE_SOURCE_DIR}/wxjson/include)
 
 SET(SRC_DASHBOARD
     src/dashboard_pi.cpp
@@ -167,8 +167,19 @@ SET(INC_NMEA0183
     nmea0183/inc/rpm.hpp
     nmea0183/inc/xdr.hpp)
 
+SET(SRC_JSON
+    wxjson/src/jsonval.cpp
+    wxjson/src/jsonreader.cpp
+	wxjson/src/jsonwriter.cpp
+)
 
-TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${SRC_NMEA0183})
+SET(INC_JSON
+    wxjson/include/json_defs.h
+    wxjson/include/jsonreader.h
+    wxjson/include/jsonval.h
+    wxjson/include/jsonwriter.h)
+
+TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${SRC_NMEA0183} ${SRC_JSON})
 
 ##
 ## ----- do not change next section - needed to configure build process ----- ##

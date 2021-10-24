@@ -55,6 +55,10 @@
 #include <wx/spinctrl.h>
 #include <wx/aui/aui.h>
 #include <wx/fontpicker.h>
+#include "wx/json_defs.h"
+#include "wx/jsonreader.h"
+#include "wx/jsonval.h"
+#include "wx/jsonwriter.h"
 
 // Defines version numbers, names etc. for this plugin
 // This is automagically constructed via version.h.in from CMakeLists.txt, personally I think this is convoluted
@@ -81,12 +85,12 @@ class DashboardInstrumentContainer;
 // If no data received in 5 seconds, zero the instrument displays
 #define WATCHDOG_TIMEOUT_COUNT  5
 
-// Conversion functions
-double celsius2fahrenheit(double tempeature);
-double fahrenheit2celsius(double tempeature);
-double pascal2psi(double pressure);
-double psi2pascal(double pressure);
+// Kelvin to celsius
+#define CONST_KELVIN 273.15
+#define CONVERT_KELVIN(x) (x - CONST_KELVIN )
 
+// RADIANS/DEGREES
+#define RADIANS_TO_DEGREES(x) (x * 180 / M_PI)
 
 class DashboardWindowContainer {
 public:
@@ -166,13 +170,19 @@ public:
 	void ShowDashboard(size_t id, bool visible);
 	int GetToolbarItemId();
 	int GetDashboardWindowShownCount();
+	void SetPluginMessage(wxString& message_id, wxString& message_body);
 	  
 private:
 	// Load plugin configuraton
 	bool LoadConfig(void);
 	void ApplyConfig(void);
-	// Send deconstructed NMEA 1083 sentence  values to each display
+	// Send deconstructed NMEA 1083 sentence values to each display
 	void SendSentenceToAllInstruments(int st, double value, wxString unit);
+	// Conversion utilities
+	double Celsius2Fahrenheit(double temperature);
+	double Fahrenheit2Celsius(double temperature);
+	double Pascal2Psi(double pressure);
+	double Psi2Pascal(double pressure);
 
 	// OpenCPN goodness, pointers to Configuration, AUI Manager and Toolbar
 	wxFileConfig *m_pconfig;
@@ -184,12 +194,31 @@ private:
 	int m_show_id;
 	int m_hide_id;
 
+	// Used to parse JSON values from SignalK
+	wxJSONValue root;
+	wxJSONReader jsonReader;
+	wxString self;
+	void HandleSKUpdate(wxJSONValue &update);
+	void UpdateSKItem(wxJSONValue &item);
+	double GetJsonDouble(wxJSONValue &value); // FFS
+
 	// Used to parse NMEA Sentences
 	NMEA0183 m_NMEA0183;
 
 	// For some reason in older dashboard implementations used this variable was used to differentiate config file versions
 	// Engine Dashboard uses version 2 configuration settings
 	int m_config_version;
+
+	// Watchdog timer, performs two functions, firstly refresh the dashboard every second,  
+	// and secondly, if no data is received, set instruments to zero (eg. Engine switched off)
+	wxDateTime engineWatchDog;
+	wxDateTime tankLevelWatchDog;
+
+	// Store the current engine hours for displaying in the Tachometer Dial
+	double mainEngineHours;
+	double portEngineHours;
+	double stbdEngineHours;
+
 };
 
 class DashboardPreferencesDialog : public wxDialog {

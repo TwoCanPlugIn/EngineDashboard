@@ -12,7 +12,8 @@
 // 1.3. 20-12-2020 - Add support for additional transducer names
 // 1.4. 10-10-2021 - Support lower/camel/upper case transducer names
 //                 - Additional Fuel & Water tanks (for NMEA 0183 V4.11 standard names, Eg. FreshWater#2)
-//                 - Tank level & battery voltage gauges are no longer zeroed when the engine is off
+//                 - Tank level & battery voltage gauges are no longer zeroed when the engine is off (no RPM's)
+//                 - Support for SignalK data
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -68,46 +69,19 @@ int g_iDashTachometerMax;
 int g_iDashTemperatureUnit;
 int g_iDashPressureUnit;
 
-// Store the current engine hours for displaying in the Tachometer Dial
-double mainEngineHours;
-double portEngineHours;
-double stbdEngineHours;
-
-// If using NME 183 v4.11 or ShipModul/Maretron transducer names,
+// If using NMEA 183 v4.11 or ShipModul/Maretron transducer names,
 // If we are a dual engine vessel, instance 0 refers to port engine & instance 1 to the starboard engine
 // If not a dual engine vessel, instance 0 refers to the main engine.
+// Global values because used by instances of both the plugin & preference classes
 bool dualEngine; 
 
 // If the voltmeter display range is for 12 or 24 volt systems.
 bool twentyFourVolts;
 
-// Watchdog timer, performs two functions, firstly refresh the dashboard every second,  
-// and secondly, if no data is received, set instruments to zero (eg. Engine switched off)
-wxDateTime engineWatchDog;
-wxDateTime tankLevelWatchDog;
-
 #if !defined(NAN)
 static const long long lNaN = 0xfff8000000000000;
 #define NAN (*(double*)&lNaN)
 #endif
-
-// a few conversion functions
-double celsius2fahrenheit(double temperature) {
-	return (temperature * 9 / 5) + 32;
-}
-
-double fahrenheit2celsius(double temperature) {
-	return (temperature - 32) * 5 / 9;
-}
-
-double pascal2psi(double pressure) {
-	return pressure * 0.000145f;
-}
-
-double psi2pascal(double pressure) {
-	return pressure * 6894.745f;
-}
-
 
 // The class factories, used to create and destroy instances of the PlugIn
 // BUG BUG Consider refactoring/renaming the classes
@@ -170,10 +144,10 @@ wxString GetInstrumentCaption(unsigned int id) {
 			return _("Stbd Alternator Voltage");
 		case ID_DBP_FUEL_TANK_01:
 			return _("Fuel 1");
-		case ID_DBP_WATER_TANK_01:
-			return _("Water 1");
 		case ID_DBP_FUEL_TANK_02:
 			return _("Fuel 2");
+		case ID_DBP_WATER_TANK_01:
+			return _("Water 1");
 		case ID_DBP_WATER_TANK_02:
 			return _("Water 2");
 		case ID_DBP_WATER_TANK_03:
@@ -379,7 +353,7 @@ int dashboard_pi::Init(void) {
     Start(1000, wxTIMER_CONTINUOUS);
 
     // Reduced from the original dashboard requests
-    return (WANTS_TOOLBAR_CALLBACK | INSTALLS_TOOLBAR_TOOL | WANTS_PREFERENCES | WANTS_CONFIG | WANTS_NMEA_SENTENCES | USES_AUI_MANAGER);
+    return (WANTS_TOOLBAR_CALLBACK | INSTALLS_TOOLBAR_TOOL | WANTS_PREFERENCES | WANTS_CONFIG | WANTS_NMEA_SENTENCES | USES_AUI_MANAGER | WANTS_PLUGIN_MESSAGING);
 }
 
 bool dashboard_pi::DeInit(void) {
@@ -422,7 +396,7 @@ void dashboard_pi::Notify()
 {
     if (wxDateTime::Now() > (engineWatchDog + wxTimeSpan::Seconds(5))) {
 		// Zero the engine instruments
-		// We goto ID_DBP_FUEL_TANK_01 + 3, because there are three additional values
+		// We go from zero to ID_DBP_FUEL_TANK_01 + 3, because there are three additional values
 		// in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
 		// do not have their own gauge, but populate the engine rpm gauges
 		// The tank levels start from OCPN_DBP_STC_TANK_LEVEL_FUEL_01 which is 
@@ -435,10 +409,11 @@ void dashboard_pi::Notify()
 
 	if (wxDateTime::Now() > (tankLevelWatchDog + wxTimeSpan::Seconds(5))) {
 		// Zero the tank instruments
-		// We goto IDP_LAST_ENTRY + 3, because there are three additional values
+		// We go from OCPN_DBP_STC_TANK_LEVEL_FUEL_01 to IDP_LAST_ENTRY + 3, 
+		// because there are three additional values
 		// in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
 		// do not have their own gauge, but populate the engine rpm gauges
-		for (int i = ID_DBP_FUEL_TANK_01, j = 0; i < ID_DBP_LAST_ENTRY + 3; i++) {
+		for (int i = ID_DBP_FUEL_TANK_01 + 3, j = 0; i < ID_DBP_LAST_ENTRY + 3; i++) {
 			j = 1 << i;
 			SendSentenceToAllInstruments(j, 0.0f, "");
 		}
@@ -488,6 +463,23 @@ wxString dashboard_pi::GetLongDescription() {
     return _(PLUGIN_LONG_DESCRIPTION);
 }
 
+// a few conversion functions
+double dashboard_pi::Celsius2Fahrenheit(double temperature) {
+	return (temperature * 9 / 5) + 32;
+}
+
+double dashboard_pi::Fahrenheit2Celsius(double temperature) {
+	return (temperature - 32) * 5 / 9;
+}
+
+double dashboard_pi::Pascal2Psi(double pressure) {
+	return pressure * 0.000145f;
+}
+
+double dashboard_pi::Psi2Pascal(double pressure) {
+	return pressure * 6894.745f;
+}
+
 // Sends the data value from the parsed NMEA sentence to each gauge
 void dashboard_pi::SendSentenceToAllInstruments(int st, double value, wxString unit) {
     for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
@@ -496,6 +488,229 @@ void dashboard_pi::SendSentenceToAllInstruments(int st, double value, wxString u
 	    dashboard_window->SendSentenceToAllInstruments(st, value, unit);
 	}
     }
+}
+
+// One of those FFS moments
+// Have to know the type of the value before retrieving.
+// Shame it can't force an int to a double.
+double dashboard_pi::GetJsonDouble(wxJSONValue &value) {
+	double d_ret;
+	if (value.IsDouble()) {
+		return d_ret = value.AsDouble();
+	}
+	else if (value.IsInt()) {
+		int i_ret = value.AsInt();
+		return d_ret = i_ret;
+	}
+	// else what ??
+}
+
+// Receive & handle SignalK derived data
+void dashboard_pi::SetPluginMessage(wxString& message_id, wxString& message_body) {
+	if (message_id == _T("OCPN_CORE_SIGNALK")) {
+		
+		if (jsonReader.Parse(message_body, &root) > 0) {
+			wxLogMessage("Engine Dashboard, JSON Error in following");
+			wxLogMessage("%s", message_body);
+			wxArrayString jsonErrors = jsonReader.GetErrors();
+			for (auto it : jsonErrors) {
+				wxLogMessage(it);
+			}
+			return;
+		}
+
+		if (root.HasMember("self")) {
+			if (root["self"].AsString().StartsWith(_T("vessels.")))
+				self = (root["self"].AsString());  // for java server, and OpenPlotter node.js server 1.20
+			else
+				self = _T("vessels.") + (root["self"].AsString()); // for Node.js server
+		}
+
+		if (root.HasMember("context")
+			&& root["context"].IsString()) {
+			auto context = root["context"].AsString();
+			if (context != self) {
+				return;
+			}
+		}
+
+		if (root.HasMember("updates") && root["updates"].IsArray()) {
+			wxJSONValue &updates = root["updates"];
+			for (int i = 0; i < updates.Size(); ++i) {
+				HandleSKUpdate(updates[i]);
+			}
+		}
+	}
+}
+
+void dashboard_pi::HandleSKUpdate(wxJSONValue &update) {
+	if (update.HasMember("values")	&& update["values"].IsArray()) {
+		for (int j = 0; j < update["values"].Size(); ++j) {
+			wxJSONValue &item = update["values"][j];
+			UpdateSKItem(item);
+		}
+	}
+}
+
+void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
+	if (item.HasMember("path") && item.HasMember("value")) {
+		const wxString &update_path = item["path"].AsString();
+		wxJSONValue &value = item["value"];
+
+		if (update_path.StartsWith("propulsion")) {
+			engineWatchDog = wxDateTime::Now();
+		}
+
+		// Units in revolutions per second
+		if (update_path == _T("propulsion.port.revolutions") && (!dualEngine)) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
+		}
+
+		if (update_path == _T("propulsion.port.revolutions") && (dualEngine)) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
+		}
+
+		if (update_path == _T("propulsion.starboard.revolutions")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
+		}
+
+		// Units in volts
+		if (update_path == _T("propulsion.port.alternatorVoltage") && (!dualEngine)) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
+		}
+
+		if (update_path == _T("propulsion.port.alternatorVoltage") && (dualEngine)) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
+		}
+
+		if (update_path == _T("propulsion.starboard.alternatorVoltage")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
+		}
+
+		if (g_iDashPressureUnit == PRESSURE_BAR) {
+			// Units are in Pascals. 100000 Pascals = 1 Bar
+			if (update_path == _T("propulsion.port.oilPressure") & (!dualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
+			}
+
+			if (update_path == _T("propulsion.port.oilPressure") && (dualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
+			}
+
+			if (update_path == _T("propulsion.starboard.oilPressure")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
+			}
+		}
+
+		else if (g_iDashPressureUnit == PRESSURE_PSI) {
+			if (update_path == _T("propulsion.port.oilPressure") & (!dualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
+			}
+
+			if (update_path == _T("propulsion.port.oilPressure") && (dualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
+			}
+
+			if (update_path == _T("propulsion.starboard.oilPressure")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
+			}
+		}
+		
+		if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+			// Units are in Kelvin
+			if (update_path == _T("propulsion.port.temperature") && (!dualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
+			}
+
+			if (update_path == _T("propulsion.port.temperature") && (dualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
+			}
+
+			if (update_path == _T("propulsion.starboard.temperature")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
+			}
+		}
+		else if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+			if (update_path == _T("propulsion.port.temperature") && (!dualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
+			}
+
+			if (update_path == _T("propulsion.port.temperature") && (dualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
+			}
+
+			if (update_path == _T("propulsion.starboard.temperature")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
+			}
+		}
+
+		// Units are in seconds
+		if (update_path == _T("propulsion.port.runTime") && (!dualEngine)) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, GetJsonDouble(value) / 3600, "Hrs");
+		}
+
+		if (update_path == _T("propulsion.port.runTime") && (dualEngine)) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, GetJsonDouble(value) / 3600, "Hrs");
+		}
+
+		if (update_path == _T("propulsion.starboard.runTime")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, GetJsonDouble(value) / 3600, "Hrs");
+		}
+
+		if (update_path == _T("electrical.batteries.0.voltage")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_VOLTS, GetJsonDouble(value), "Volts");
+		}
+
+		if (update_path == _T("electrical.batteries.0.current")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_AMPS, GetJsonDouble(value), "Amps");
+		}
+
+		if (update_path == _T("electrical.batteries.1.voltage")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, GetJsonDouble(value), "Volts");
+		}
+
+		if (update_path == _T("electrical.batteries.1.current")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, GetJsonDouble(value), "Amps");
+		}
+
+		if (update_path.StartsWith(_T("steering.rudderAngle"))) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, RADIANS_TO_DEGREES(GetJsonDouble(value)), _T("\u00B0"));
+		}
+
+		if (update_path.StartsWith("tanks", NULL)) {
+			tankLevelWatchDog = wxDateTime::Now();
+			wxString xdrunit = "Level";
+
+			// Units are meant to be in percent, but they seem to range from 0 to 1
+			if (update_path == _T("tanks.freshWater.0.currentLevel")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, GetJsonDouble(value) * 100, xdrunit);
+			}
+
+			if (update_path == _T("tanks.freshWater.1.currentLevel")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, GetJsonDouble(value) * 100, xdrunit);
+			}
+
+			if (update_path == _T("tanks.freshWater.2.currentLevel")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, GetJsonDouble(value) * 100, xdrunit);
+			}
+
+			if (update_path == _T("tanks.wasteWater.0.currentLevel")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_GREY, GetJsonDouble(value) * 100, xdrunit);
+			}
+
+			if (update_path == _T("tanks.blackWater.0.currentLevel")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, GetJsonDouble(value) * 100, xdrunit);
+			}
+
+			if (update_path == _T("tanks.fuel.0.currentLevel")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, GetJsonDouble(value) * 100, xdrunit);
+			}
+
+			if (update_path == _T("tanks.fuel.1.currentLevel")) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, GetJsonDouble(value) * 100, xdrunit);
+			}
+		}
+	}
 }
 
 // This method is invoked by OpenCPN when we specify WANTS_NMEA_SENTENCES
@@ -649,33 +864,33 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 								xdrunit = _T("\u00B0 F");
                                 // TwoCan Transducer naming 
 								if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
 								else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("PORT")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
 								else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("STBD")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
                                 else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
                                 else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!dualEngine)) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
                                 else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
                                 // Ship Modul/Maretron Transducer Names
                                 else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP1")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
                                 else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!dualEngine)) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
                                 else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (dualEngine)) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, celsius2fahrenheit(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
 							}
 						}
@@ -691,7 +906,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
 								else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("PORT")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, xdrdata + 1e-5, xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 								}
 								else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("STBD")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
@@ -722,33 +937,33 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 								xdrunit = _T("PSI");
                                 // TwoCan Plugin Transducer Names
 								if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 								}
 								else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("PORT")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 								}
 								else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("STBD")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
                                 else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#1")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 								}
                                 else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!dualEngine)) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 								}
                                 else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (dualEngine)) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 								}
                                 // Ship Modul/MaretronTransducer Names
                                 else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP1")) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 								}
                                 else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!dualEngine)) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 								}
                                 else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (dualEngine)) {
-									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, pascal2psi(xdrdata), xdrunit);
+									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 								}
 							}
 						}
@@ -823,14 +1038,14 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
                     if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("I")) {
 						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("A")) {
 							xdrunit = _T("Amps");
-                            // NMEA 183 v4.11 Transducr Names
+                            // NMEA 183 v4.11 Transducer Names
                             if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATTERY#0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_AMPS, xdrdata, xdrunit);
 							}
 							else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATTERY#1")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, xdrdata, xdrunit);
 							}
-                            // Ship Modul/Maretron Transducr Names
+                            // Ship Modul/Maretron Transducer Names
                             if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATCURR0")) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_AMPS, xdrdata, xdrunit);
 							}
@@ -1282,7 +1497,7 @@ bool dashboard_pi::LoadConfig(void) {
                 ar.Add(ID_DBP_MAIN_ENGINE_RPM);
                 ar.Add(ID_DBP_MAIN_ENGINE_OIL);
                 ar.Add(ID_DBP_MAIN_ENGINE_WATER);
-		ar.Add(ID_DBP_MAIN_ENGINE_VOLTS);
+				ar.Add(ID_DBP_MAIN_ENGINE_VOLTS);
             }
 	    
 	    // Note generate a unique GUID for each dashboard container
