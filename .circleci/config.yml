@@ -666,7 +666,7 @@ workflows:
                     - tmp
                 tags:
                     only: /.*/
-     build_18:
+    build_18:
         when: <<pipeline.parameters.run_build_macos_wx315>>
         jobs:
         - build-macos-wx315:
