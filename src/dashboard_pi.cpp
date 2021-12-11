@@ -484,9 +484,9 @@ double dashboard_pi::Psi2Pascal(double pressure) {
 void dashboard_pi::SendSentenceToAllInstruments(int st, double value, wxString unit) {
     for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
         DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
-	if (dashboard_window) {
-	    dashboard_window->SendSentenceToAllInstruments(st, value, unit);
-	}
+		if (dashboard_window) {
+			dashboard_window->SendSentenceToAllInstruments(st, value, unit);
+		}
     }
 }
 
@@ -526,8 +526,7 @@ void dashboard_pi::SetPluginMessage(wxString& message_id, wxString& message_body
 				self = _T("vessels.") + (root["self"].AsString()); // for Node.js server
 		}
 
-		if (root.HasMember("context")
-			&& root["context"].IsString()) {
+		if (root.HasMember("context") && root["context"].IsString()) {
 			auto context = root["context"].AsString();
 			if (context != self) {
 				return;

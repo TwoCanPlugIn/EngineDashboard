@@ -38,8 +38,8 @@ set(LONG_DESCRIPTION "Engine Dashboard, Displays Engine RPM, Oil pressure, Water
 set(VERSION_MAJOR "1")
 set(VERSION_MINOR "4")
 set(VERSION_PATCH "0")
-set(VERSION_TWEAK "0")
-set(VERSION_DATE "20/10/2021")
+set(VERSION_TWEAK "1")
+set(VERSION_DATE "10/12/2021")
 set(OCPN_MIN_VERSION "ov50")
 set(OCPN_API_VERSION_MAJOR "1")
 set(OCPN_API_VERSION_MINOR "16")
@@ -118,12 +118,12 @@ include("PluginConfigure")
 ##Engine Dashboard plugin uses SVG for toolbar icons
 add_definitions(-DPLUGIN_USE_SVG)
 
-## We don't use JSON
-##if(APPLE)
-##    option(PI_JSON_SCHEMA_VALIDATOR "Use JSON Schema validator" OFF)
-##else(APPLE)
-##    option(PI_JSON_SCHEMA_VALIDATOR "Use JSON Schema validator" ON)
-##endif(APPLE)
+## JSON is used to parse SignalK data
+if(APPLE)
+    option(PI_JSON_SCHEMA_VALIDATOR "Use JSON Schema validator" OFF)
+else(APPLE)
+    option(PI_JSON_SCHEMA_VALIDATOR "Use JSON Schema validator" ON)
+endif(APPLE)
 
 ## Need api-16 for ocpn_plugin.h
 INCLUDE_DIRECTORIES(BEFORE ${PROJECT_SOURCE_DIR}/libs/ocpn-api)
