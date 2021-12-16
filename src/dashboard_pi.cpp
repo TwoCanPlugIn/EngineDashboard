@@ -350,7 +350,9 @@ int dashboard_pi::Init(void) {
     }
 
     // Initialize the watchdog timer
-    Start(1000, wxTIMER_CONTINUOUS);
+	engineWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
+	tankLevelWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
+	Start(1000, wxTIMER_CONTINUOUS);
 
     // Reduced from the original dashboard requests
     return (WANTS_TOOLBAR_CALLBACK | INSTALLS_TOOLBAR_TOOL | WANTS_PREFERENCES | WANTS_CONFIG | WANTS_NMEA_SENTENCES | USES_AUI_MANAGER | WANTS_PLUGIN_MESSAGING);
