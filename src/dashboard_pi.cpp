@@ -14,6 +14,7 @@
 //                 - Additional Fuel & Water tanks (for NMEA 0183 V4.11 standard names, Eg. FreshWater#2)
 //                 - Tank level & battery voltage gauges are no longer zeroed when the engine is off (no RPM's)
 //                 - Support for SignalK data
+// 1.4.1 16-12-2021 - Fix uninitailzed watchdog timers
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
