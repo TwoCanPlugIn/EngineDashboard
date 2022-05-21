@@ -15,6 +15,7 @@
 //                 - Tank level & battery voltage gauges are no longer zeroed when the engine is off (no RPM's)
 //                 - Support for SignalK data
 // 1.4.1 16-12-2021 - Fix uninitailzed watchdog timers
+// 1.4.2 20-05-2022 - Add Yacht Devices engine hours transducer name (EngineHours#x)
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -1076,8 +1077,8 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 							}
 						}
-                        // NMEA 183 v4.11 Transducer Names, Note NMEA do not define Engine Hours
-                        // So we'll just assume the same as per ShipModul
+                        // NMEA 183 v4.11 Transducer Names, Note lack of clarity re transducer names
+						// Note does not have a unit of measurement
                         if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {	
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
                                 xdrunit = _T("Hrs");
@@ -1095,7 +1096,27 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 								SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
 							}
 						}
-                        // Ship Modul/Maretron Transducer Names (Note does not have a unit of measurement)
+						// NMEA 183 v4.11 Yacht Devices appear to use EngineHours
+						// Note does not have a unit of measurement
+						if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {
+							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#1")) {
+								xdrunit = _T("Hrs");
+								stbdEngineHours = xdrdata;
+								SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
+							}
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (!dualEngine)) {
+								xdrunit = _T("Hrs");
+								mainEngineHours = xdrdata;
+								SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
+							}
+							else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (dualEngine)) {
+								xdrunit = _T("Hrs");
+								portEngineHours = xdrdata;
+								SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
+							}
+						}
+                        // Ship Modul/Maretron Transducer Names 
+						// Note does not have a unit of measurement
                         if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {	
 							if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS1")) {
                                 xdrunit = _T("Hrs");
