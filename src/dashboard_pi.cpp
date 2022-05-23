@@ -2431,21 +2431,21 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				break;
 			case ID_DBP_MAIN_ENGINE_EXHAUST:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 180);
+					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 190);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_PORT_ENGINE_EXHAUST:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 180);
+					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 190);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_STBD_ENGINE_EXHAUST:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 180);
+					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 190);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
