@@ -878,6 +878,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, xdrdata, xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
+								// Engine Temperature
                                 else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, xdrdata, xdrunit);
 								}
@@ -888,7 +889,6 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, xdrdata, xdrunit);
 								}
 								// Engine Exhaust
-								// NMEA 183 v4.11 Transducer Names
 								else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, xdrdata, xdrunit);
 								}
@@ -922,6 +922,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
                                 // NMEA 183 v4.11 Transducer Names
+								// Engine Temperature
                                 else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
@@ -930,6 +931,16 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 								}
                                 else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
 									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
+								}
+								// Exhaust Temperature
+								else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#1")) {
+									SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(xdrdata), xdrunit);
+								}
+								else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (!dualEngine)) {
+									SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(xdrdata), xdrunit);
+								}
+								else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (dualEngine)) {
+									SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(xdrdata), xdrunit);
 								}
                                 // Ship Modul/Maretron Transducer Names
                                 else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP1")) {
@@ -2420,21 +2431,21 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				break;
 			case ID_DBP_MAIN_ENGINE_EXHAUST:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 40 : 100, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 100 : 250);
+					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 180);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_PORT_ENGINE_EXHAUST:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 40 : 100, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 100 : 250);
+					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 180);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_STBD_ENGINE_EXHAUST:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 40 : 100, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 100 : 250);
+					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 180);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
