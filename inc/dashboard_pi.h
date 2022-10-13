@@ -54,6 +54,7 @@
 #include <wx/imaglist.h>
 #include <wx/spinctrl.h>
 #include <wx/aui/aui.h>
+#include <wx/event.h>
 #include <wx/fontpicker.h>
 #include "wx/json_defs.h"
 #include "wx/jsonreader.h"
@@ -204,6 +205,27 @@ private:
 
 	// Used to parse NMEA Sentences
 	NMEA0183 m_NMEA0183;
+
+	// NMEA 2000
+	// Engine Parameters - Rapid Update
+	void HandleN2K_127488(ObservedEvt ev);
+	std::shared_ptr<ObservedVarListener> listener_127488;
+	// Engine Parameters - Dynamic
+	void HandleN2K_127489(ObservedEvt ev);
+	std::shared_ptr<ObservedVarListener> listener_127489;
+	// Fluid LEvels
+	void HandleN2K_127505(ObservedEvt ev);
+	std::shared_ptr<ObservedVarListener> listener_127505;
+	// Battery Status
+	void HandleN2K_127508(ObservedEvt ev);
+	std::shared_ptr<ObservedVarListener> listener_127508;
+	// Temperature
+	void HandleN2K_130312(ObservedEvt ev);
+	std::shared_ptr<ObservedVarListener> listener_130312;
+	
+	// If vessel has multiple engines, engine instance 0 = Port Engine, otherwise engine instnce 0 = Main engine
+	bool IsMultiEngineVessel;
+
 
 	// For some reason in older dashboard implementations used this variable was used to differentiate config file versions
 	// Engine Dashboard uses version 2 configuration settings

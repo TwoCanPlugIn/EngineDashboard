@@ -17,7 +17,8 @@
 // 1.4.1 16-12-2021 - Fix uninitailzed watchdog timers
 // 1.4.2 20-05-2022 - Add Yacht Devices engine hours transducer name (EngineHours#x), 
 //                  - New gauges for Engine Exhaust (EngineExhaust#n)
-// 
+// 1.5   30-10-2022 - Add support for OpenCPN v5.8 NMEA2000 messages
+//
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
 /*
@@ -361,6 +362,41 @@ int dashboard_pi::Init(void) {
     if(m_config_version == 1) {
         SaveConfig();
     }
+
+// initialize NavMsg listeners
+// BUG BUG Change these to engine & tank level PGN's
+
+  // PGN 127488 Engine Parameters Rapid Update
+	wxDEFINE_EVENT(EVT_N2K_127488, ObservedEvt);
+	NMEA2000Id id_127488 = NMEA2000Id(127488);
+	listener_127488 = std::move(GetListener(id_127488, EVT_N2K_127488, this));
+	Bind(EVT_N2K_127488, [&](ObservedEvt ev) {
+		HandleN2K_127488(ev);
+	});
+
+	// PGN 137488 Engine Parameters Dynamic
+	wxDEFINE_EVENT(EVT_N2K_127489, ObservedEvt);
+	NMEA2000Id id_127489 = NMEA2000Id(127489);
+	listener_127489 = std::move(GetListener(id_127489, EVT_N2K_127489, this));
+	Bind(EVT_N2K_127489, [&](ObservedEvt ev) {
+		HandleN2K_127489(ev);
+	});
+
+	// PGN 127505 Fluid Levels
+	wxDEFINE_EVENT(EVT_N2K_127505, ObservedEvt);
+	NMEA2000Id id_127505 = NMEA2000Id(127505);
+	listener_127505 = std::move(GetListener(id_127505, EVT_N2K_127505, this));
+	Bind(EVT_N2K_127505, [&](ObservedEvt ev) {
+		HandleN2K_127505(ev);
+	});
+
+	// PGN 127508 Battery Status
+	wxDEFINE_EVENT(EVT_N2K_127508, ObservedEvt);
+	NMEA2000Id id_127508 = NMEA2000Id(127508);
+	listener_127508 = std::move(GetListener(id_127508, EVT_N2K_127508, this));
+	Bind(EVT_N2K_127508, [&](ObservedEvt ev) {
+		HandleN2K_127508(ev);
+	});
 
     // Initialize the watchdog timer
 	engineWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
@@ -1320,6 +1356,330 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
         }
     }
 }
+
+// NMEA2000, N2K
+// Parsing routines cut and pasted from TwCan Plugin
+// Refer to twocandevice.cpp
+
+// PGN 127488 Engine Rapid Update
+void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
+	NMEA2000Id id_127488(127488);
+	std::vector<uint8_t>payload = GetN2000Payload(id_127488, ev);
+	
+	byte engineInstance;
+	engineInstance = payload[0];
+
+	unsigned short engineSpeed;
+	engineSpeed = payload[1] | (payload[2] << 8);
+
+	unsigned short engineBoostPressure;
+	engineBoostPressure = payload[3] | (payload[4] << 8);
+
+	short engineTrim;
+	engineTrim = payload[5];
+
+	if (engineInstance > 0) {
+		IsMultiEngineVessel = TRUE;
+	}
+
+	engineWatchDog = wxDateTime::Now();
+
+	switch (engineInstance) {
+		case 0:
+			if (IsMultiEngineVessel) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
+			}
+			else {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
+			}
+			break;
+		case 1:
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
+			break;
+	}
+}
+
+// PGN 127489 Engine Dyanmic 
+void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
+	NMEA2000Id id_127489(127489);
+	std::vector<uint8_t>payload = GetN2000Payload(id_127489, ev);
+
+	byte engineInstance;
+	engineInstance = payload[0];
+
+	unsigned short oilPressure; // hPa (1hPa = 100Pa)
+	oilPressure = payload[1] | (payload[2] << 8);
+
+	unsigned short oilTemperature; // 0.01 degree resolution, in Kelvin
+	oilTemperature = payload[3] | (payload[4] << 8);
+
+	unsigned short engineTemperature; // 0.01 degree resolution, in Kelvin
+	engineTemperature = payload[5] | (payload[6] << 8);
+
+	unsigned short alternatorPotential; // 0.01 Volts
+	alternatorPotential = payload[7] | (payload[8] << 8);
+
+	unsigned short fuelRate; // 0.1 Litres/hour
+	fuelRate = payload[9] | (payload[10] << 8);
+
+	unsigned short totalEngineHours;  // seconds
+	totalEngineHours = payload[11] | (payload[12] << 8) | (payload[13] << 16) | (payload[14] << 24);
+
+	unsigned short coolantPressure; // hPA
+	coolantPressure = payload[15] | (payload[16] << 8);
+
+	unsigned short fuelPressure; // hPa
+	fuelPressure = payload[17] | (payload[18] << 8);
+
+	unsigned short reserved;
+	reserved = payload[19];
+
+	short statusOne;
+	statusOne = payload[20] | (payload[21] << 8);
+	// BUG BUG Think of using XDR switch status with meaningful naming
+	// XDR parameters, "S", No units, "1" = On, "0" = Off
+	// Eg. "$IIXDR,S,1,,S100,S,1,,S203" to indicate Status One - Check Engine, Status 2 - Maintenance Needed
+	// BUG BUG Would need either icons or text messages to display the status in the dashboard
+	// {"0": "Check Engine"},
+	// { "1": "Over Temperature" },
+	// { "2": "Low Oil Pressure" },
+	// { "3": "Low Oil Level" },
+	// { "4": "Low Fuel Pressure" },
+	// { "5": "Low System Voltage" },
+	// { "6": "Low Coolant Level" },
+	// { "7": "Water Flow" },
+	// { "8": "Water In Fuel" },
+	// { "9": "Charge Indicator" },
+	// { "10": "Preheat Indicator" },
+	// { "11": "High Boost Pressure" },
+	// { "12": "Rev Limit Exceeded" },
+	// { "13": "EGR System" },
+	// { "14": "Throttle Position Sensor" },
+	// { "15": "Emergency Stop" }]
+
+	short statusTwo;
+	statusTwo = payload[22] | (payload[23] << 8);
+
+	// {"0": "Warning Level 1"},
+	// { "1": "Warning Level 2" },
+	// { "2": "Power Reduction" },
+	// { "3": "Maintenance Needed" },
+	// { "4": "Engine Comm Error" },
+	// { "5": "Sub or Secondary Throttle" },
+	// { "6": "Neutral Start Protect" },
+	// { "7": "Engine Shutting Down" }]
+
+	byte engineLoad;  // percentage
+	engineLoad = payload[24];
+
+	byte engineTorque; // percentage
+	engineTorque = payload[25];
+
+
+	if (engineInstance > 0) {
+		IsMultiEngineVessel = TRUE;
+	}
+
+	switch (engineInstance) {
+	case 0:
+		if (IsMultiEngineVessel) {
+			if (g_iDashPressureUnit == PRESSURE_BAR) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, oilPressure * 1e-5 , "Bar");
+			}
+			if (g_iDashPressureUnit == PRESSURE_PSI) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(oilPressure), "Psi");
+			}
+			if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN(engineTemperature), _T("\u00B0 C"));
+			}
+			if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(engineTemperature)), _T("\u00B0 F"));
+			}
+			
+			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, alternatorPotential * 0.01 , "Volts");
+
+			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, totalEngineHours / 3600 , "Hrs");
+		}
+		else {
+			if (g_iDashPressureUnit == PRESSURE_BAR) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, oilPressure * 1e-5, "Bar");
+			}
+			if (g_iDashPressureUnit == PRESSURE_PSI) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(oilPressure), "Psi");
+			}
+			if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN(engineTemperature), _T("\u00B0 C"));
+			}
+			if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(engineTemperature)), _T("\u00B0 F"));
+			}
+			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
+
+			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
+		}
+		break;
+	case 1:
+		if (g_iDashPressureUnit == PRESSURE_BAR) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, oilPressure * 1e-5, "Bar");
+		}
+		if (g_iDashPressureUnit == PRESSURE_PSI) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(oilPressure), "Psi");
+		}
+		if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN(engineTemperature), _T("\u00B0 C"));
+		}
+		if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(engineTemperature)), _T("\u00B0 F"));
+		}
+		SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
+
+		SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
+
+		break;
+	}
+}
+
+// PGN 127505 Fluid Levels
+void dashboard_pi::HandleN2K_127505(ObservedEvt ev) {
+	NMEA2000Id id_127505(127505);
+	std::vector<uint8_t>payload = GetN2000Payload(id_127505, ev);
+
+	byte instance;
+	instance = payload[0] & 0x0F;
+
+	byte tankType;
+	tankType = (payload[0] & 0xF0) >> 4;
+
+	unsigned short tankLevel; // percentage in 0.025 increments
+	tankLevel = payload[1] | (payload[2] << 8);
+
+	unsigned int tankCapacity; // 0.1 L
+	tankCapacity = payload[3] | (payload[4] << 8) | (payload[5] << 16) | (payload[6] << 24);
+
+	tankLevelWatchDog = wxDateTime::Now();
+	
+	switch (tankType) {
+		case 0: // Fuel
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, tankLevel / 250, "Level");
+			}
+			if (instance == 1) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, tankLevel / 250, "Level");
+			}
+			break;
+		case 1: // Freshwater
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, tankLevel / 250, "Level");
+			}
+			if (instance == 1) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, tankLevel / 250, "Level");
+			}
+			if (instance == 2) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, tankLevel / 250, "Level");
+			}
+			break;
+		case 2: // Waste water
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_GREY, tankLevel / 250, "Level");
+			}
+			break;
+		case 4: // Oil
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, tankLevel / 250, "Level");
+			}
+			break;
+		case 5: // Blackwater
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, tankLevel / 250, "Level");
+			}
+			break;
+	}
+}
+
+// PGN 127508 Battery Status
+void dashboard_pi::HandleN2K_127508(ObservedEvt ev) {
+	NMEA2000Id id_127508(127508);
+	std::vector<uint8_t>payload = GetN2000Payload(id_127508, ev);
+
+	byte batteryInstance;
+	batteryInstance = payload[0] & 0xF;
+
+	unsigned short batteryVoltage; // 0.01 volts
+	batteryVoltage = payload[1] | (payload[2] << 8);
+
+	short batteryCurrent; // 0.1 amps	
+	batteryCurrent = payload[3] | (payload[4] << 8);
+
+	unsigned short batteryTemperature; // 0.01 degree resolution, in Kelvin
+	batteryTemperature = payload[5] | (payload[6] << 8);
+
+	byte sid;
+	sid = payload[7];
+
+	if (batteryInstance == 0) {
+		SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_VOLTS, batteryVoltage * 0.01f, "Volts");
+		SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_AMPS, batteryCurrent * 0.1f, "Amps");
+	}
+
+	if (batteryInstance == 1) {
+		SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, batteryVoltage * 0.01f, "Volts");
+		SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_VOLTS, batteryCurrent * 0.1f, "Amps");
+	}
+	
+}
+
+// PGN 130312 Temperature (used for Exhaust Gas Temperature)
+void dashboard_pi::HandleN2K_130312(ObservedEvt ev) {
+	NMEA2000Id id_130312(130312);
+	std::vector<uint8_t>payload = GetN2000Payload(id_130312, ev);
+
+	byte sid;
+	sid = payload[0];
+
+	byte instance;
+	instance = payload[1];
+
+	byte source;
+	source = payload[2];
+
+	unsigned short actualTemperature;
+	actualTemperature = payload[3] | (payload[4] << 8);
+
+	unsigned short setTemperature;
+	setTemperature = payload[5] | (payload[6] << 8);
+
+	if (source == 14) {
+
+		switch (instance) {
+		case 0:
+			if (IsMultiEngineVessel) {
+				if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, CONVERT_KELVIN(actualTemperature), _T("\u00B0 C"));
+				}
+				if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(actualTemperature)), _T("\u00B0 F"));
+				}
+			}
+			else {
+				if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, CONVERT_KELVIN(actualTemperature), _T("\u00B0 C"));
+				}
+				if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(actualTemperature)), _T("\u00B0 F"));
+				}
+			}
+			break;
+		case 1:
+			if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, CONVERT_KELVIN(actualTemperature), _T("\u00B0 C"));
+			}
+			if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(actualTemperature)), _T("\u00B0 F"));
+			}
+		}
+	}
+}
+
 
 // Not sure what this does or is used for. I guess we only install one toolbar item??
 int dashboard_pi::GetToolbarToolCount(void) {
