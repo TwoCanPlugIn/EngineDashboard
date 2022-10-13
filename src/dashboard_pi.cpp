@@ -82,6 +82,8 @@ bool dualEngine;
 // If the voltmeter display range is for 12 or 24 volt systems.
 bool twentyFourVolts;
 
+typedef unsigned char byte;
+
 #if !defined(NAN)
 static const long long lNaN = 0xfff8000000000000;
 #define NAN (*(double*)&lNaN)
