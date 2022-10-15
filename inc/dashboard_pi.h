@@ -226,6 +226,102 @@ private:
 	// If vessel has multiple engines, engine instance 0 = Port Engine, otherwise engine instnce 0 = Main engine
 	bool IsMultiEngineVessel;
 
+	// NMEA 2000 Data Validation
+	template<typename T>
+	static bool IsDataValid(T value);
+
+	static bool IsDataValid(byte value) {
+		if ((value == UCHAR_MAX) || (value == UCHAR_MAX - 1) || (value == UCHAR_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+	static bool IsDataValid(char value) {
+		if ((value == CHAR_MAX) || (value == CHAR_MAX - 1) || (value == CHAR_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+	static bool IsDataValid(unsigned short value) {
+		if ((value == USHRT_MAX) || (value == USHRT_MAX - 1) || (value == USHRT_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+	static bool IsDataValid(short value) {
+		if ((value == SHRT_MAX) || (value == SHRT_MAX - 1) || (value == SHRT_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+	static bool IsDataValid(unsigned int value) {
+		if ((value == UINT_MAX) || (value == UINT_MAX - 1) || (value == UINT_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+	static bool IsDataValid(int value) {
+		if ((value == INT_MAX) || (value == INT_MAX - 1) || (value == INT_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+	static bool IsDataValid(unsigned long value) {
+		if ((value == ULONG_MAX) || (value == ULONG_MAX - 1) || (value == ULONG_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+	static bool IsDataValid(long value) {
+		if ((value == LONG_MAX) || (value == LONG_MAX - 1) || (value == LONG_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+	static bool IsDataValid(unsigned long long value) {
+		if ((value == ULLONG_MAX) || (value == ULLONG_MAX - 1) || (value == ULLONG_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+	static bool IsDataValid(long long value) {
+		if ((value == LLONG_MAX) || (value == LLONG_MAX - 1) || (value == LLONG_MAX - 2)) {
+			return FALSE;
+		}
+		else {
+			return TRUE;
+		}
+	}
+
+
+
 
 	// For some reason in older dashboard implementations used this variable was used to differentiate config file versions
 	// Engine Dashboard uses version 2 configuration settings
