@@ -365,7 +365,6 @@ int dashboard_pi::Init(void) {
     }
 
 // initialize NavMsg listeners
-// BUG BUG Change these to engine & tank level PGN's
 
   // PGN 127488 Engine Parameters Rapid Update
 	wxDEFINE_EVENT(EVT_N2K_127488, ObservedEvt);
@@ -375,7 +374,7 @@ int dashboard_pi::Init(void) {
 		HandleN2K_127488(ev);
 	});
 
-	// PGN 137488 Engine Parameters Dynamic
+	// PGN 127489 Engine Parameters Dynamic
 	wxDEFINE_EVENT(EVT_N2K_127489, ObservedEvt);
 	NMEA2000Id id_127489 = NMEA2000Id(127489);
 	listener_127489 = std::move(GetListener(id_127489, EVT_N2K_127489, this));
@@ -405,7 +404,7 @@ int dashboard_pi::Init(void) {
 	Start(1000, wxTIMER_CONTINUOUS);
 
     // Reduced from the original dashboard requests
-    return (WANTS_TOOLBAR_CALLBACK | INSTALLS_TOOLBAR_TOOL | WANTS_PREFERENCES | WANTS_CONFIG | WANTS_NMEA_SENTENCES | USES_AUI_MANAGER | WANTS_PLUGIN_MESSAGING);
+    return (WANTS_TOOLBAR_CALLBACK | INSTALLS_TOOLBAR_TOOL | WANTS_PREFERENCES | WANTS_CONFIG | WANTS_NMEA_SENTENCES | USES_AUI_MANAGER | WANTS_PLUGIN_MESSAGING | WANTS_NMEA_EVENTS);
 }
 
 bool dashboard_pi::DeInit(void) {
@@ -1385,6 +1384,8 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 
 	engineWatchDog = wxDateTime::Now();
 
+	wxLogMessage(_T("Engine Debug: Instance : %d  RPM %d"), engineInstance, engineSpeed);
+
 	if (IsDataValid(engineSpeed)) {
 
 		switch (engineInstance) {
@@ -1403,7 +1404,7 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 	}
 }
 
-// PGN 127489 Engine Dyanmic 
+// PGN 127489 Engine Dynamic 
 void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	NMEA2000Id id_127489(127489);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127489, ev);
@@ -1475,6 +1476,8 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 
 	byte engineTorque; // percentage
 	engineTorque = payload[25];
+
+	wxLogMessage(_T("Engine Debug: Instance : %d  Temp %d"), engineInstance, engineTemperature);
 
 
 	if (engineInstance > 0) {
