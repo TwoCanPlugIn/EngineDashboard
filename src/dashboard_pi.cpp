@@ -364,19 +364,9 @@ int dashboard_pi::Init(void) {
         SaveConfig();
     }
 
-// initialize NavMsg listeners
+	// initialize NavMsg listeners
 
-	//BUG BUG Debugging
-	 // Wind   PGN 130306
-	wxDEFINE_EVENT(EVT_N2K_130306, ObservedEvt);
-	NMEA2000Id id_130306 = NMEA2000Id(130306);
-	listener_130306 = std::move(GetListener(id_130306, EVT_N2K_130306, this));
-	Bind(EVT_N2K_130306, [&](ObservedEvt ev) {
-		HandleN2K_130306(ev);
-	});
-
-
-  // PGN 127488 Engine Parameters Rapid Update
+	// PGN 127488 Engine Parameters Rapid Update
 	wxDEFINE_EVENT(EVT_N2K_127488, ObservedEvt);
 	NMEA2000Id id_127488 = NMEA2000Id(127488);
 	listener_127488 = std::move(GetListener(id_127488, EVT_N2K_127488, this));
@@ -1371,31 +1361,22 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 // Parsing routines cut and pasted from TwCan Plugin
 // Refer to twocandevice.cpp
 
-// BUG BUG Debugging
-// Wind   PGN 130306
-void dashboard_pi::HandleN2K_130306(ObservedEvt ev) {
-	NMEA2000Id id_130306(130306);
-	std::vector<uint8_t>v = GetN2000Payload(id_130306, ev);
-
-	wxMessageBox("Got Wind");
-}
-
 // PGN 127488 Engine Rapid Update
 void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 	NMEA2000Id id_127488(127488);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127488, ev);
 	
 	byte engineInstance;
-	engineInstance = payload[0];
+	engineInstance = payload[index + 0];
 
 	unsigned short engineSpeed;
-	engineSpeed = payload[1] | (payload[2] << 8);
+	engineSpeed = payload[index + 1] | (payload[index + 2] << 8);
 
 	unsigned short engineBoostPressure;
-	engineBoostPressure = payload[3] | (payload[4] << 8);
+	engineBoostPressure = payload[index + 3] | (payload[index + 4] << 8);
 
 	short engineTrim;
-	engineTrim = payload[5];
+	engineTrim = payload[index + 5];
 
 	if (engineInstance > 0) {
 		IsMultiEngineVessel = TRUE;
@@ -1403,7 +1384,7 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 
 	engineWatchDog = wxDateTime::Now();
 
-	wxLogMessage(_T("Engine Debug: Instance : %d  RPM %d"), engineInstance, engineSpeed);
+	wxLogMessage(_T("Engine Debug: Instance : %d (%d) RPM %d"), engineInstance, payload[index + index + 0], engineSpeed);
 
 	if (IsDataValid(engineSpeed)) {
 
@@ -1429,37 +1410,37 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	std::vector<uint8_t>payload = GetN2000Payload(id_127489, ev);
 
 	byte engineInstance;
-	engineInstance = payload[0];
+	engineInstance = payload[index + 0];
 
 	unsigned short oilPressure; // hPa (1hPa = 100Pa)
-	oilPressure = payload[1] | (payload[2] << 8);
+	oilPressure = payload[index + 1] | (payload[index + 2] << 8);
 
 	unsigned short oilTemperature; // 0.01 degree resolution, in Kelvin
-	oilTemperature = payload[3] | (payload[4] << 8);
+	oilTemperature = payload[index + 3] | (payload[index + 4] << 8);
 
 	unsigned short engineTemperature; // 0.01 degree resolution, in Kelvin
-	engineTemperature = payload[5] | (payload[6] << 8);
+	engineTemperature = payload[index + 5] | (payload[index + 6] << 8);
 
 	unsigned short alternatorPotential; // 0.01 Volts
-	alternatorPotential = payload[7] | (payload[8] << 8);
+	alternatorPotential = payload[index + 7] | (payload[index + 8] << 8);
 
 	unsigned short fuelRate; // 0.1 Litres/hour
-	fuelRate = payload[9] | (payload[10] << 8);
+	fuelRate = payload[index + 9] | (payload[index + 10] << 8);
 
 	unsigned short totalEngineHours;  // seconds
-	totalEngineHours = payload[11] | (payload[12] << 8) | (payload[13] << 16) | (payload[14] << 24);
+	totalEngineHours = payload[index + 11] | (payload[index + 12] << 8) | (payload[index + 13] << 16) | (payload[index + 14] << 24);
 
 	unsigned short coolantPressure; // hPA
-	coolantPressure = payload[15] | (payload[16] << 8);
+	coolantPressure = payload[index + 15] | (payload[index + 16] << 8);
 
 	unsigned short fuelPressure; // hPa
-	fuelPressure = payload[17] | (payload[18] << 8);
+	fuelPressure = payload[index + 17] | (payload[index + 18] << 8);
 
 	unsigned short reserved;
-	reserved = payload[19];
+	reserved = payload[index + 19];
 
 	short statusOne;
-	statusOne = payload[20] | (payload[21] << 8);
+	statusOne = payload[index + 20] | (payload[index + 21] << 8);
 	// BUG BUG One Day add warning lights to the gauge
 	// {"0": "Check Engine"},
 	// { "1": "Over Temperature" },
@@ -1479,7 +1460,7 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	// { "15": "Emergency Stop" }]
 
 	short statusTwo;
-	statusTwo = payload[22] | (payload[23] << 8);
+	statusTwo = payload[index + 22] | (payload[index + 23] << 8);
 
 	// {"0": "Warning Level 1"},
 	// { "1": "Warning Level 2" },
@@ -1491,10 +1472,10 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	// { "7": "Engine Shutting Down" }]
 
 	byte engineLoad;  // percentage
-	engineLoad = payload[24];
+	engineLoad = payload[index + 24];
 
 	byte engineTorque; // percentage
-	engineTorque = payload[25];
+	engineTorque = payload[index + 25];
 
 	wxLogMessage(_T("Engine Debug: Instance : %d  Temp %d"), engineInstance, engineTemperature);
 
@@ -1604,16 +1585,16 @@ void dashboard_pi::HandleN2K_127505(ObservedEvt ev) {
 	std::vector<uint8_t>payload = GetN2000Payload(id_127505, ev);
 
 	byte instance;
-	instance = payload[0] & 0x0F;
+	instance = payload[index + 0] & 0x0F;
 
 	byte tankType;
-	tankType = (payload[0] & 0xF0) >> 4;
+	tankType = (payload[index + 0] & 0xF0) >> 4;
 
 	unsigned short tankLevel; // percentage in 0.025 increments
-	tankLevel = payload[1] | (payload[2] << 8);
+	tankLevel = payload[index + 1] | (payload[index + 2] << 8);
 
 	unsigned int tankCapacity; // 0.1 L
-	tankCapacity = payload[3] | (payload[4] << 8) | (payload[5] << 16) | (payload[6] << 24);
+	tankCapacity = payload[index + 3] | (payload[index + 4] << 8) | (payload[index + 5] << 16) | (payload[index + 6] << 24);
 
 	tankLevelWatchDog = wxDateTime::Now();
 
@@ -1664,19 +1645,19 @@ void dashboard_pi::HandleN2K_127508(ObservedEvt ev) {
 	std::vector<uint8_t>payload = GetN2000Payload(id_127508, ev);
 
 	byte batteryInstance;
-	batteryInstance = payload[0] & 0xF;
+	batteryInstance = payload[index + 0] & 0xF;
 
 	unsigned short batteryVoltage; // 0.01 volts
-	batteryVoltage = payload[1] | (payload[2] << 8);
+	batteryVoltage = payload[index + 1] | (payload[index + 2] << 8);
 
 	short batteryCurrent; // 0.1 amps	
-	batteryCurrent = payload[3] | (payload[4] << 8);
+	batteryCurrent = payload[index + 3] | (payload[index + 4] << 8);
 
 	unsigned short batteryTemperature; // 0.01 degree resolution, in Kelvin
-	batteryTemperature = payload[5] | (payload[6] << 8);
+	batteryTemperature = payload[index + 5] | (payload[index + 6] << 8);
 
 	byte sid;
-	sid = payload[7];
+	sid = payload[index + 7];
 
 	if ((IsDataValid(batteryVoltage)) && (IsDataValid(batteryCurrent))) {
 
@@ -1699,19 +1680,19 @@ void dashboard_pi::HandleN2K_130312(ObservedEvt ev) {
 	std::vector<uint8_t>payload = GetN2000Payload(id_130312, ev);
 
 	byte sid;
-	sid = payload[0];
+	sid = payload[index + 0];
 
 	byte instance;
-	instance = payload[1];
+	instance = payload[index + 1];
 
 	byte source;
-	source = payload[2];
+	source = payload[index + 2];
 
 	unsigned short actualTemperature;
-	actualTemperature = payload[3] | (payload[4] << 8);
+	actualTemperature = payload[index + 3] | (payload[index + 4] << 8);
 
 	unsigned short setTemperature;
-	setTemperature = payload[5] | (payload[6] << 8);
+	setTemperature = payload[index + 5] | (payload[index + 6] << 8);
 
 	// Source 14 indicates exhaust temperature
 	if ((source == 14) && (IsDataValid(actualTemperature))) {
