@@ -76,6 +76,8 @@
 #include "speedometer.h"
 #include "rudder_angle.h"
 
+typedef unsigned char byte;
+
 class DashboardWindow;
 class DashboardWindowContainer;
 class DashboardInstrumentContainer;
