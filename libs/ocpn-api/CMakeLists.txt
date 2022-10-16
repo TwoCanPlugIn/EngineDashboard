@@ -8,7 +8,7 @@ if (TARGET ocpn::api)
   return ()
 endif ()
 
-set(API_VERSION "1.16" PARENT_SCOPE)
+set(API_VERSION "1.18" PARENT_SCOPE)
 set(API_OCPN_MIN_VERSION "5.0.0" PARENT_SCOPE)
 
 add_library(OCPN_API INTERFACE)

@@ -613,11 +613,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 
 		// Units in revolutions per second
-		if (update_path == _T("propulsion.port.revolutions") && (!dualEngine)) {
+		if ((update_path == _T("propulsion.port.revolutions")) && (!dualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
 		}
 
-		if (update_path == _T("propulsion.port.revolutions") && (dualEngine)) {
+		if ((update_path == _T("propulsion.port.revolutions")) && (dualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
 		}
 
@@ -626,11 +626,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 
 		// Units in volts
-		if (update_path == _T("propulsion.port.alternatorVoltage") && (!dualEngine)) {
+		if ((update_path == _T("propulsion.port.alternatorVoltage")) && (!dualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
 		}
 
-		if (update_path == _T("propulsion.port.alternatorVoltage") && (dualEngine)) {
+		if ((update_path == _T("propulsion.port.alternatorVoltage")) && (dualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
 		}
 
@@ -640,11 +640,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 
 		if (g_iDashPressureUnit == PRESSURE_BAR) {
 			// Units are in Pascals. 100000 Pascals = 1 Bar
-			if (update_path == _T("propulsion.port.oilPressure") & (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) & (!dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
 			}
 
-			if (update_path == _T("propulsion.port.oilPressure") && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) && (dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
 			}
 
@@ -654,11 +654,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 
 		else if (g_iDashPressureUnit == PRESSURE_PSI) {
-			if (update_path == _T("propulsion.port.oilPressure") & (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) & (!dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
 			}
 
-			if (update_path == _T("propulsion.port.oilPressure") && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) && (dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
 			}
 
@@ -669,11 +669,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		
 		if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
 			// Units are in Kelvin
-			if (update_path == _T("propulsion.port.temperature") && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.temperature")) && (!dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
-			if (update_path == _T("propulsion.port.temperature") && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.temperature")) && (dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
@@ -681,11 +681,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
-			if (update_path == _T("propulsion.port.exhaustTemperature") && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
-			if (update_path == _T("propulsion.port.exhaustTemperature") && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
@@ -694,11 +694,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 		}
 		else if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-			if (update_path == _T("propulsion.port.temperature") && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.temperature")) && (!dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
-			if (update_path == _T("propulsion.port.temperature") && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.temperature")) && (dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
@@ -706,11 +706,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
-			if (update_path == _T("propulsion.port.exhaustTemperature") && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
-			if (update_path == _T("propulsion.port.exhaustTemperature") && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
@@ -720,11 +720,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 
 		// Units are in seconds
-		if (update_path == _T("propulsion.port.runTime") && (!dualEngine)) {
+		if ((update_path == _T("propulsion.port.runTime")) && (!dualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, GetJsonDouble(value) / 3600, "Hrs");
 		}
 
-		if (update_path == _T("propulsion.port.runTime") && (dualEngine)) {
+		if ((update_path == _T("propulsion.port.runTime")) && (dualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, GetJsonDouble(value) / 3600, "Hrs");
 		}
 

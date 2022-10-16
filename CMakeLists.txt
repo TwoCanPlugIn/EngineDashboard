@@ -42,7 +42,7 @@ set(VERSION_TWEAK "0")
 set(VERSION_DATE "30/10/2022")
 set(OCPN_MIN_VERSION "ov50")
 set(OCPN_API_VERSION_MAJOR "1")
-set(OCPN_API_VERSION_MINOR "18")
+set(OCPN_API_VERSION_MINOR "8")
 set(TP_COMMENT "Release for O5 using CI")
 
 set(PARENT "opencpn")
@@ -170,7 +170,7 @@ SET(INC_NMEA0183
 SET(SRC_JSON
     wxjson/src/jsonval.cpp
     wxjson/src/jsonreader.cpp
-	wxjson/src/jsonwriter.cpp
+    wxjson/src/jsonwriter.cpp
 )
 
 SET(INC_JSON
