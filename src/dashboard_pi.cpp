@@ -366,6 +366,16 @@ int dashboard_pi::Init(void) {
 
 // initialize NavMsg listeners
 
+	//BUG BUG Debugging
+	 // Wind   PGN 130306
+	wxDEFINE_EVENT(EVT_N2K_130306, ObservedEvt);
+	NMEA2000Id id_130306 = NMEA2000Id(130306);
+	listener_130306 = std::move(GetListener(id_130306, EVT_N2K_130306, this));
+	Bind(EVT_N2K_130306, [&](ObservedEvt ev) {
+		HandleN2K_130306(ev);
+	});
+
+
   // PGN 127488 Engine Parameters Rapid Update
 	wxDEFINE_EVENT(EVT_N2K_127488, ObservedEvt);
 	NMEA2000Id id_127488 = NMEA2000Id(127488);
@@ -1360,6 +1370,15 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 // NMEA2000, N2K
 // Parsing routines cut and pasted from TwCan Plugin
 // Refer to twocandevice.cpp
+
+// BUG BUG Debugging
+// Wind   PGN 130306
+void dashboard_pi::HandleN2K_130306(ObservedEvt ev) {
+	NMEA2000Id id_130306(130306);
+	std::vector<uint8_t>v = GetN2000Payload(id_130306, ev);
+
+	wxMessageBox("Got Wind");
+}
 
 // PGN 127488 Engine Rapid Update
 void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {

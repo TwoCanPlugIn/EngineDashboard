@@ -209,6 +209,10 @@ private:
 	NMEA0183 m_NMEA0183;
 
 	// NMEA 2000
+	// BUG BUG Debugging
+	void HandleN2K_130306(ObservedEvt ev);
+	std::shared_ptr<ObservedVarListener> listener_130306;
+
 	// Engine Parameters - Rapid Update
 	void HandleN2K_127488(ObservedEvt ev);
 	std::shared_ptr<ObservedVarListener> listener_127488;
