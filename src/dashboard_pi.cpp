@@ -1502,9 +1502,6 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 		IsMultiEngineVessel = TRUE;
 	}
 
-	// BUG BUG 
-	wxLogMessage(_T("*** Instance : %d Value: %d, Engine Hours: %0.1f"), engineInstance, totalEngineHours, totalEngineHours / 3600.0f);
-
 	switch (engineInstance) {
 	case 0:
 		if (IsMultiEngineVessel) {
