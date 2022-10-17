@@ -1433,7 +1433,7 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	byte engineInstance;
 	engineInstance = payload[index + 0];
 
-	unsigned short oilPressure; // hPa (1hPa = 100Pa, 1 Bar = 1000 hPa)
+	unsigned short oilPressure; // hPa (1 hPa = 100Pa, 1 hPa = .001 Bar)
 	oilPressure = payload[index + 1] | (payload[index + 2] << 8);
 
 	unsigned short oilTemperature; // 0.01 degree resolution, in Kelvin
@@ -1448,7 +1448,7 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	unsigned short fuelRate; // 0.1 Litres/hour
 	fuelRate = payload[index + 9] | (payload[index + 10] << 8);
 
-	unsigned short totalEngineHours;  // seconds
+	unsigned int totalEngineHours;  // seconds
 	totalEngineHours = payload[index + 11] | (payload[index + 12] << 8) | (payload[index + 13] << 16) | (payload[index + 14] << 24);
 
 	unsigned short coolantPressure; // hPA
@@ -1460,7 +1460,7 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	unsigned short reserved;
 	reserved = payload[index + 19];
 
-	short statusOne;
+	unsigned short statusOne;
 	statusOne = payload[index + 20] | (payload[index + 21] << 8);
 	// BUG BUG One Day add warning lights to the gauge
 	// {"0": "Check Engine"},
@@ -1480,7 +1480,7 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	// { "14": "Throttle Position Sensor" },
 	// { "15": "Emergency Stop" }]
 
-	short statusTwo;
+	unsigned short statusTwo;
 	statusTwo = payload[index + 22] | (payload[index + 23] << 8);
 
 	// {"0": "Warning Level 1"},
