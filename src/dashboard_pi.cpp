@@ -399,7 +399,7 @@ int dashboard_pi::Init(void) {
 	});
 
     // Initialize the watchdog timers
-	// Engine warchdog zeros tachometer, oil pressure ^ engine temperature if no RPM's received
+	// Engine watchdog zeros tachometer, oil pressure & engine temperature if no RPM's received
 	// Tank level watchdog zeroes tanks if no tank level data is received
 	engineWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
 	tankLevelWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
