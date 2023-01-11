@@ -28,6 +28,8 @@ workflows:
             <<: *std-filters
         - build-armhf-debian-bullseye:
             <<: *std-filters
+        - build-arm64-debian-bullseye:
+            <<: *std-filters
         - build-armhf-ubuntu-focal:
             <<: *std-filters
         - build-bionic:
@@ -42,15 +44,13 @@ workflows:
             <<: *std-filters
         - build-flatpak-x86-2008:
             <<: *std-filters
-        - build-flatpak-x86-2008-beta:
-            <<: *std-filters
         - build-flatpak-x86-1808:
             <<: *std-filters
         - build-flatpak-arm64:
             <<: *std-filters
         - build-macos:
             <<: *std-filters
-        - build-macos-wx315:
+        - build-macos-wx32:
             <<: *std-filters
 
 orbs:
@@ -153,6 +153,23 @@ jobs:
         environment:
         - OCPN_TARGET=bullseye-armhf
         - DOCKER_IMAGE=jongough/debian-armhf:bullseye
+        - BUILD_FLAGS=-j3
+        - BUILD_ENV=debian
+        - BUILD_GTK3: true
+        - DEPLOY_USE_ORB: true
+        steps:
+        - checkout
+        - run: chmod a+x ./ci/*.sh
+        - run:
+            command: ci/circleci-build-raspbian-armhf.sh
+            no_output_timeout: 30m
+        - deploy-code
+    build-arm64-debian-bullseye:
+        machine:
+            image: ubuntu-2004:202104-01
+        environment:
+        - OCPN_TARGET=bullseye-arm64
+        - DOCKER_IMAGE=arm64v8/debian:bullseye-backports
         - BUILD_FLAGS=-j3
         - BUILD_ENV=debian
         - BUILD_GTK3: true
@@ -306,23 +323,6 @@ jobs:
             command: bash ci/circleci-build-flatpak.sh
             no_output_timeout: 30m
         - deploy-code
-    build-flatpak-x86-2008-beta:
-        machine:
-            image: ubuntu-2004:202010-01
-        environment:
-        - OCPN_TARGET:  flatpak
-        - FLATPAK_BRANCH: beta
-        - WX_VER: wx315
-        - CLOUDSMITH_PKG_EXT: gz
-        - SDK_VER: 20.08
-        - DEPLOY_USE_ORB: true
-        steps:
-        - checkout
-        - run: chmod a+x ci/*.sh
-        - run:
-            command: bash ci/circleci-build-flatpak.sh
-            no_output_timeout: 30m
-        - deploy-code
     build-flatpak-arm64:
         machine:
             image: ubuntu-2004:202101-01
@@ -351,14 +351,14 @@ jobs:
         - run: chmod a+x ci/*.sh
         - run: bash ci/circleci-build-macos.sh
         - deploy-code
-    build-macos-wx315:
+    build-macos-wx32:
         macos:
             xcode: "12.5.1"
         environment:
         - OCPN_TARGET:  macos
         - CLOUDSMITH_PKG_EXT: pkg
         - DEPLOY_USE_ORB: true
-        - WXVERSION: 315
+        - WXVERSION: 32
         steps:
         - checkout
         - run: chmod a+x ci/*.sh

@@ -15,7 +15,7 @@
 set(CMLOC "CMakeLists: ")
 
 # define minimum cmake version
-cmake_minimum_required(VERSION 3.1.1)
+cmake_minimum_required(VERSION 3.25.1)
 if(COMMAND cmake_policy)
     if(POLICY CMP0043)
         cmake_policy(SET CMP0043 NEW)
@@ -39,7 +39,7 @@ set(VERSION_MAJOR "1")
 set(VERSION_MINOR "5")
 set(VERSION_PATCH "0")
 set(VERSION_TWEAK "0")
-set(VERSION_DATE "30/10/2022")
+set(VERSION_DATE "10/1/2023")
 set(OCPN_MIN_VERSION "ov50")
 set(OCPN_API_VERSION_MAJOR "1")
 set(OCPN_API_VERSION_MINOR "8")

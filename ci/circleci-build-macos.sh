@@ -15,72 +15,12 @@ for pkg in cairo cmake gettext libarchive libexif python wget; do
     brew link --overwrite $pkg || brew install $pkg
 done
 
-# Force the MacOSX ennvironment for the two libraries
-export MACOSX_DEPLOYMENT_TARGET=10.9
-echo $MACOSX_DEPLOYMENT_TARGET
-# Note to self, we use my fork of the libraries as the makefile has been changed with the
-# addition of the cflag -mmacosx-deployment_target=10.9
-# Build the Rusoku Toucan Library
-git clone https://github.com/twocanplugin/rusokucan
-cd rusokucan
-# generates the build/version number for the Toucan library
-./build_no.sh
-# build the library
-make all
-# perhaps unnecessary
-sudo make install
-# copy include files 
-sudo cp Includes/*.h /usr/local/include
-# back to the project build directory
-cd ..
-# copy the resulting Toucan library to the plugin data/drivers directory
-# We will include the dylib file so that users do not have to compile/install 
-# the dylibs themselves.
-# It also allows the rpath to be correctly generated in the plugin dylib linker
-for f in $(find rusokucan/Libraries/TouCAN  -name '*.dylib')
-do
-  echo $f
-  cp $f data/drivers 
-   # create a symbolic link to the library file
-   # ln -s "data/drivers/${f##*/}" data/drivers/libTouCAN.dylib
-   # there should only be one file, but in anycase exit after the first
-  break
-done
-
-# Build the Kvaser Library
-git clone https://github.com/twocanplugin/kvasercan-library
-cd kvasercan-library
-# generates the build/version number for the Kvaser library
-./build_no.sh
-# build the library
-make all
-# perhaps unnecessary
-sudo make install
-# copy include files - Note was cp -n Includes/*.h /usr/local/include 2>/dev/null || : to prevent over writing
-sudo cp Includes/*.h /usr/local/include
-# back to the project build directory
-cd ..
-# copy the resulting Kvaser library to the plugin data/drivers directory
-# We will include the dylib file so that users do not have to compile/install 
-# the dylibs themselves.
-# It also allows the rpath to be correctly generated in the plugin dylib linker
-for f in $(find kvasercan-library/Libraries/KvaserCAN  -name '*.dylib')
-do
-  echo $f
-  cp $f data/drivers 
-   # create a symbolic link to the library file
-   # ln -s "data/drivers/${f##*/}" data/drivers/libKvaserCAN.dylib
-   # there should only be one file, but in anycase exit after the first
-  break
-done
-
-
-if [ -n "$WXVERSION" ] && [ "$WXVERSION" -eq "315" ]; then
-    echo "Building for WXVERSION 315";
-    WX_URL=https://download.opencpn.org/s/MCiRiq4fJcKD56r/download
-    WX_DOWNLOAD=/tmp/wx315_opencpn50_macos1010.tar.xz
-    WX_EXECUTABLE=/tmp/wx315_opencpn50_macos1010/bin/wx-config
-    WX_CONFIG="--prefix=/tmp/wx315_opencpn50_macos1010"
+if [ -n "$WXVERSION" ] && [ "$WXVERSION" -eq "32" ]; then
+    echo "Building for WXVERSION 32";
+    WX_URL=https://download.opencpn.org/s/Djqm4SXzYjF8nBw/download
+    WX_DOWNLOAD=/tmp/wx321_opencpn50_macos1010.tar.xz
+    WX_EXECUTABLE=/tmp/wx321_opencpn50_macos1010/bin/wx-config
+    WX_CONFIG="--prefix=/tmp/wx321_opencpn50_macos1010"
     MACOSX_DEPLOYMENT_TARGET=10.10
 else
     echo "Building for WXVERSION 312";

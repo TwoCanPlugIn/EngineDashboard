@@ -34,7 +34,11 @@ if [ -n "$CI" ]; then
     # Avoid using outdated TLS certificates, see #210.
     sudo apt install --reinstall  ca-certificates
 
-    # Install flatpak and flatpak-builder
+	# Use updated flatpak workaround
+    sudo add-apt-repository -y ppa:alexlarsson/flatpak
+    sudo apt update
+
+   # Install flatpak and flatpak-builder - obsoleted by flathub
     sudo apt install flatpak flatpak-builder
 	
 fi
