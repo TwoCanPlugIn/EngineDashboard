@@ -139,7 +139,7 @@ WX_DEFINE_ARRAY(DashboardInstrumentContainer *, wxArrayOfInstrument);
 // Engine Dashboard PlugIn Class Definition
 //
 
-class dashboard_pi : public opencpn_plugin_116, wxTimer {
+class dashboard_pi : public opencpn_plugin_118, wxTimer {
 public:
 	dashboard_pi(void *ppimgr);
 	~dashboard_pi(void);
