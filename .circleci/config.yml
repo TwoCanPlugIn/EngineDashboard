@@ -44,7 +44,7 @@ workflows:
             <<: *std-filters
         - build-flatpak-x86-2008:
             <<: *std-filters
-        - build-flatpak-x86-1808:
+        - build-flatpak-x86-2208:
             <<: *std-filters
         - build-flatpak-arm64:
             <<: *std-filters
@@ -262,6 +262,7 @@ jobs:
         - image: cimg/base:edge-22.04
         environment:
         - BUILD_GTK3: true
+        - WX_VER: 32
         - OCPN_TARGET: jammy
         - DEPLOY_USE_ORB: true
         - BUILD_ENV=ubuntu
@@ -271,6 +272,8 @@ jobs:
             echo "deb-src http://us.archive.ubuntu.com/ubuntu/ jammy main" | sudo tee -a /etc/apt/sources.list
         - run: >
             echo "deb-src http://us.archive.ubuntu.com/ubuntu/ jammy-updates main" | sudo tee -a /etc/apt/sources.list
+        - run: >
+            echo "deb [trusted=yes] https://ppa.launchpadcontent.net/bdbcat/opencpn/ubuntu/ jammy main" | sudo tee -a /etc/apt/sources.list
         - run: cat /etc/apt/sources.list
         - run: chmod a+x ci/*.sh
         - run: ci/circleci-build-debian.sh
@@ -293,20 +296,6 @@ jobs:
         - run: chmod a+x ci/*.sh
         - run: ci/circleci-build-debian.sh
         - deploy-code
-    build-flatpak-x86-1808:
-        machine:
-            image: ubuntu-2004:202010-01
-        environment:
-        - OCPN_TARGET:  flatpak
-        - FLATPAK_BRANCH: stable
-        - CLOUDSMITH_PKG_EXT: gz
-        - SDK_VER: 18.08
-        - DEPLOY_USE_ORB: true
-        steps:
-        - checkout
-        - run: chmod a+x ci/*.sh
-        - run: bash ci/circleci-build-flatpak.sh
-        - deploy-code
     build-flatpak-x86-2008:
         machine:
             image: ubuntu-2004:202010-01
@@ -315,6 +304,22 @@ jobs:
         - FLATPAK_BRANCH: stable
         - CLOUDSMITH_PKG_EXT: gz
         - SDK_VER: 20.08
+        - DEPLOY_USE_ORB: true
+        steps:
+        - checkout
+        - run: chmod a+x ci/*.sh
+        - run:
+            command: bash ci/circleci-build-flatpak.sh
+            no_output_timeout: 30m
+        - deploy-code
+ build-flatpak-x86-2208:
+        machine:
+            image: ubuntu-2004:202010-01
+        environment:
+        - OCPN_TARGET:  flatpak
+        - FLATPAK_BRANCH: beta
+        - CLOUDSMITH_PKG_EXT: gz
+        - SDK_VER: 22.08
         - DEPLOY_USE_ORB: true
         steps:
         - checkout
@@ -345,7 +350,7 @@ jobs:
         - OCPN_TARGET:  macos
         - CLOUDSMITH_PKG_EXT: pkg
         - DEPLOY_USE_ORB: true
-        - WXVERSION: 312
+        - WX_VER: 312
         steps:
         - checkout
         - run: chmod a+x ci/*.sh
@@ -358,7 +363,7 @@ jobs:
         - OCPN_TARGET:  macos
         - CLOUDSMITH_PKG_EXT: pkg
         - DEPLOY_USE_ORB: true
-        - WXVERSION: 32
+        - WX_VER: 32
         steps:
         - checkout
         - run: chmod a+x ci/*.sh
