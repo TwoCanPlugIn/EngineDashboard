@@ -215,19 +215,19 @@ private:
 	const int index = 13;
 	// Engine Parameters - Rapid Update
 	void HandleN2K_127488(ObservedEvt ev);
-	std::shared_ptr<ObservedVarListener> listener_127488;
+	std::shared_ptr<ObservableListener> listener_127488;
 	// Engine Parameters - Dynamic
 	void HandleN2K_127489(ObservedEvt ev);
-	std::shared_ptr<ObservedVarListener> listener_127489;
+	std::shared_ptr<ObservableListener> listener_127489;
 	// Fluid LEvels
 	void HandleN2K_127505(ObservedEvt ev);
-	std::shared_ptr<ObservedVarListener> listener_127505;
+	std::shared_ptr<ObservableListener> listener_127505;
 	// Battery Status
 	void HandleN2K_127508(ObservedEvt ev);
-	std::shared_ptr<ObservedVarListener> listener_127508;
+	std::shared_ptr<ObservableListener> listener_127508;
 	// Temperature
 	void HandleN2K_130312(ObservedEvt ev);
-	std::shared_ptr<ObservedVarListener> listener_130312;
+	std::shared_ptr<ObservableListener> listener_130312;
 	
 	// If vessel has multiple engines, engine instance 0 = Port Engine, otherwise engine instnce 0 = Main engine
 	bool IsMultiEngineVessel;
