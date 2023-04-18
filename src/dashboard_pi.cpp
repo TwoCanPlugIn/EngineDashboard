@@ -296,7 +296,7 @@ wxString MakeName() {
 
 // Dashboard Constructor
 // BUG BUG Consider renaming the class to engine_dashboard_pi to avoid confusion when programming other dashboard projects
-dashboard_pi::dashboard_pi(void *ppimgr) : opencpn_plugin_117(ppimgr), wxTimer(this) {
+dashboard_pi::dashboard_pi(void *ppimgr) : opencpn_plugin_118(ppimgr), wxTimer(this) {
     // Create the PlugIn icons
     initialize_images();
 }

@@ -312,7 +312,7 @@ jobs:
             command: bash ci/circleci-build-flatpak.sh
             no_output_timeout: 30m
         - deploy-code
- build-flatpak-x86-2208:
+    build-flatpak-x86-2208:
         machine:
             image: ubuntu-2004:202010-01
         environment:
