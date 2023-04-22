@@ -1388,6 +1388,10 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
 void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 	NMEA2000Id id_127488(127488);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127488, ev);
+
+	// Debugging
+	wxLogMessage("PGN: %d, Source: %d, Dest: %d, Length: %d", payload.at(3) | (payload.at(4) << 8) | (payload.at(5) << 16),
+		payload.at(7), payload.at(6), payload.at(12));
 	
 	byte engineInstance;
 	engineInstance = payload[index + 0];
@@ -1429,6 +1433,11 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	NMEA2000Id id_127489(127489);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127489, ev);
+
+	// Debugging
+	wxLogMessage("PGN: %d, Source: %d, Dest: %d, Length: %d", payload.at(3) | (payload.at(4) << 8) | (payload.at(5) << 16),
+		payload.at(7), payload.at(6), payload.at(12));
+
 
 	byte engineInstance;
 	engineInstance = payload[index + 0];
