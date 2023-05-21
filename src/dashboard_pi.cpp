@@ -405,7 +405,7 @@ int dashboard_pi::Init(void) {
 	tankLevelWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
 	Start(1000, wxTIMER_CONTINUOUS);
 
-    // Reduced from the original dashboard requests
+	// Reduced from the original dashboard requests
     return (WANTS_TOOLBAR_CALLBACK | INSTALLS_TOOLBAR_TOOL | WANTS_PREFERENCES | WANTS_CONFIG | WANTS_NMEA_SENTENCES | USES_AUI_MANAGER | WANTS_PLUGIN_MESSAGING | WANTS_NMEA_EVENTS);
 }
 
@@ -1389,10 +1389,6 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 	NMEA2000Id id_127488(127488);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127488, ev);
 
-	// BUG BUG Debugging
-	wxLogMessage("PGN: %d, Source: %d, Dest: %d, Length: %d", payload.at(3) | (payload.at(4) << 8) | (payload.at(5) << 16),
-		payload.at(7), payload.at(6), payload.at(12));
-	
 	byte engineInstance;
 	engineInstance = payload[index + 0];
 
@@ -1405,22 +1401,16 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 	short engineTrim;
 	engineTrim = payload[index + 5];
 
-	// BUG BUG Debugging
-	wxLogMessage("Engine Instance: %d, RPM: %d", engineInstance, engineSpeed);
-
-
 	if (engineInstance > 0) {
-		IsMultiEngineVessel = TRUE;
+		dualEngine = TRUE;
 	}
 
 	engineWatchDog = wxDateTime::Now();
 
 	if (IsDataValid(engineSpeed)) {
-
 		switch (engineInstance) {
 			case 0:
-
-				if (IsMultiEngineVessel) {
+				if (dualEngine) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
 				}
 				else {
@@ -1438,11 +1428,6 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	NMEA2000Id id_127489(127489);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127489, ev);
-
-	// Debugging
-	wxLogMessage("PGN: %d, Source: %d, Dest: %d, Length: %d", payload.at(3) | (payload.at(4) << 8) | (payload.at(5) << 16),
-		payload.at(7), payload.at(6), payload.at(12));
-
 
 	byte engineInstance;
 	engineInstance = payload[index + 0];
@@ -1513,93 +1498,93 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	engineTorque = payload[index + 25];
 
 	if (engineInstance > 0) {
-		IsMultiEngineVessel = TRUE;
+		dualEngine = TRUE;
 	}
 
 	switch (engineInstance) {
-	case 0:
-		if (IsMultiEngineVessel) {
-			if (IsDataValid(oilPressure)) {
-				if (g_iDashPressureUnit == PRESSURE_BAR) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, oilPressure * 1e-3, "Bar");
+		case 0:
+			if (dualEngine) {
+				if (IsDataValid(oilPressure)) {
+					if (g_iDashPressureUnit == PRESSURE_BAR) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, oilPressure * 1e-3, "Bar");
+					}
+					if (g_iDashPressureUnit == PRESSURE_PSI) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(oilPressure * 100), "Psi");
+					}
 				}
-				if (g_iDashPressureUnit == PRESSURE_PSI) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(oilPressure * 100), "Psi");
-				}
-			}
 
-			if (IsDataValid(engineTemperature)) {
-				if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
+				if (IsDataValid(engineTemperature)) {
+					if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
+					}
+					if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN((engineTemperature * 0.01f))), _T("\u00B0 F"));
+					}
 				}
-				if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN((engineTemperature * 0.01f))), _T("\u00B0 F"));
-				}
-			}
 			
-			if (IsDataValid(alternatorPotential)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
-			}
+				if (IsDataValid(alternatorPotential)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
+				}
 
-			if (IsDataValid(totalEngineHours)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
+				if (IsDataValid(totalEngineHours)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
+				}
 			}
-		}
-		else {
+			else {
+				if (IsDataValid(oilPressure)) {
+					if (g_iDashPressureUnit == PRESSURE_BAR) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, oilPressure * 1e-3, "Bar");
+					}
+					if (g_iDashPressureUnit == PRESSURE_PSI) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(oilPressure  * 100), "Psi");
+					}
+				}
+				if (IsDataValid(engineTemperature)) {
+					if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
+					}
+					if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN((engineTemperature * 0.01f))), _T("\u00B0 F"));
+					}
+				}
+
+				if (IsDataValid(alternatorPotential)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
+				}
+
+				if (IsDataValid(totalEngineHours)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
+				}
+			}
+			break;
+		case 1:
 			if (IsDataValid(oilPressure)) {
 				if (g_iDashPressureUnit == PRESSURE_BAR) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, oilPressure * 1e-3, "Bar");
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, oilPressure * 1e-3, "Bar");
 				}
 				if (g_iDashPressureUnit == PRESSURE_PSI) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(oilPressure  * 100), "Psi");
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(oilPressure * 100), "Psi");
 				}
 			}
 			if (IsDataValid(engineTemperature)) {
 				if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
 				}
 				if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN((engineTemperature * 0.01f))), _T("\u00B0 F"));
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit((CONVERT_KELVIN(engineTemperature * 0.01f))), _T("\u00B0 F"));
 				}
 			}
 
 			if (IsDataValid(alternatorPotential)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
 			}
 
 			if (IsDataValid(totalEngineHours)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
 			}
-		}
-		break;
-	case 1:
-		if (IsDataValid(oilPressure)) {
-			if (g_iDashPressureUnit == PRESSURE_BAR) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, oilPressure * 1e-3, "Bar");
-			}
-			if (g_iDashPressureUnit == PRESSURE_PSI) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(oilPressure * 100), "Psi");
-			}
-		}
-		if (IsDataValid(engineTemperature)) {
-			if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
-			}
-			if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit((CONVERT_KELVIN(engineTemperature * 0.01f))), _T("\u00B0 F"));
-			}
-		}
 
-		if (IsDataValid(alternatorPotential)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
+			break;
 		}
-
-		if (IsDataValid(totalEngineHours)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
-		}
-
-		break;
-	}
 }
 
 // PGN 127505 Fluid Levels
@@ -1705,8 +1690,8 @@ void dashboard_pi::HandleN2K_130312(ObservedEvt ev) {
 	byte sid;
 	sid = payload[index + 0];
 
-	byte instance;
-	instance = payload[index + 1];
+	byte engineInstance;
+	engineInstance = payload[index + 1];
 
 	byte source;
 	source = payload[index + 2];
@@ -1717,12 +1702,16 @@ void dashboard_pi::HandleN2K_130312(ObservedEvt ev) {
 	unsigned short setTemperature;
 	setTemperature = payload[index + 5] | (payload[index + 6] << 8);
 
+	if (engineInstance > 0) {
+		dualEngine = TRUE;
+	}
+
 	// Source 14 indicates exhaust temperature
 	if ((source == 14) && (IsDataValid(actualTemperature))) {
 
-		switch (instance) {
+		switch (engineInstance) {
 			case 0:
-				if (IsMultiEngineVessel) {
+				if (dualEngine) {
 					if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, CONVERT_KELVIN((actualTemperature * 0.01f)), _T("\u00B0 C"));
 					}

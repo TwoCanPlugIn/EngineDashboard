@@ -229,9 +229,6 @@ private:
 	void HandleN2K_130312(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_130312;
 	
-	// If vessel has multiple engines, engine instance 0 = Port Engine, otherwise engine instnce 0 = Main engine
-	bool IsMultiEngineVessel;
-
 	// NMEA 2000 Data Validation
 	template<typename T>
 	static bool IsDataValid(T value);
