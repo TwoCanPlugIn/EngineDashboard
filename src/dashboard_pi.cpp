@@ -622,6 +622,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 
 		if (update_path == _T("propulsion.starboard.revolutions")) {
+			// dualEngine = TRUE;
 			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
 		}
 
@@ -635,6 +636,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 
 		if (update_path == _T("propulsion.starboard.alternatorVoltage")) {
+			// dualEngine = TRUE;
 			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
 		}
 
@@ -649,6 +651,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 
 			if (update_path == _T("propulsion.starboard.oilPressure")) {
+				// dualEngine = TRUE;
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
 			}
 		}
@@ -663,6 +666,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 
 			if (update_path == _T("propulsion.starboard.oilPressure")) {
+				// dualEngine = TRUE;
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
 			}
 		}
@@ -678,6 +682,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 
 			if (update_path == _T("propulsion.starboard.temperature")) {
+				// dualEngine = TRUE;
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
@@ -690,6 +695,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 
 			if (update_path == _T("propulsion.starboard.exhaustTemperature")) {
+				// dualEngine = TRUE;
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 		}
@@ -703,6 +709,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 
 			if (update_path == _T("propulsion.starboard.temperature")) {
+				// dualEngine = TRUE;
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
@@ -715,6 +722,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 
 			if (update_path == _T("propulsion.starboard.exhaustTemperature")) {
+				// dualEngine = TRUE;
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 		}
@@ -729,6 +737,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 
 		if (update_path == _T("propulsion.starboard.runTime")) {
+			// dualEngine = TRUE;
 			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, GetJsonDouble(value) / 3600, "Hrs");
 		}
 
