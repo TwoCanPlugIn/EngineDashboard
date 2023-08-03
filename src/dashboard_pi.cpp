@@ -18,6 +18,8 @@
 // 1.4.2 20-05-2022 - Add Yacht Devices engine hours transducer name (EngineHours#x), 
 //                  - New gauges for Engine Exhaust (EngineExhaust#n)
 // 1.5   30-10-2022 - Add support for OpenCPN v5.8 native NMEA 2000 network connections
+// 1.5.1 03-08-2023 - Fixed Ciecle CI build for flatpak arm64
+// 1.6   03-08-2923 - Using Listeners for NMEA 183
 //
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -364,7 +366,16 @@ int dashboard_pi::Init(void) {
         SaveConfig();
     }
 
-	// initialize NMEA 2000 NavMsg listeners
+	// Initialize NMEA 183 Listeners
+	// $--XDR Transducers
+	wxDEFINE_EVENT(EVT_183_XDR, ObservedEvt);
+	NMEA0183Id id_xdr = NMEA0183Id("XDR");
+	listener_xdr = std::move(GetListener(id_xdr, EVT_183_XDR, this));
+	Bind(EVT_183_XDR, [&](ObservedEvt ev) {
+		HandleXDR(ev);
+	});
+
+	// initialize NMEA 2000 Listeners
 
 	// PGN 127488 Engine Parameters Rapid Update
 	wxDEFINE_EVENT(EVT_N2K_127488, ObservedEvt);
@@ -796,6 +807,15 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 	}
 }
+
+void dashboard_pi::HandleXDR(ObservedEvt ev) {
+	NMEA0183Id id_183_xdr("XDR");
+
+	std::string payload = GetN0183Payload(id_183_xdr, ev);
+
+	wxLogMessage("Listener Debug: %s", payload);
+}
+
 
 // This method is invoked by OpenCPN when we specify WANTS_NMEA_SENTENCES
 void dashboard_pi::SetNMEASentence(wxString &sentence) {

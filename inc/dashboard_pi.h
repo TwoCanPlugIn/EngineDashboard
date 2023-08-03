@@ -207,6 +207,8 @@ private:
 
 	// Used to parse NMEA Sentences
 	NMEA0183 m_NMEA0183;
+	void HandleXDR(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_xdr;
 
 	// NMEA 2000
 	// index into the payload.
