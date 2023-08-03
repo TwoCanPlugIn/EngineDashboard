@@ -225,7 +225,7 @@ message(STATUS "${CMLOC}PKG_NVR: ${PKG_NVR}, PKG_TARGET: ${PKG_TARGET}, ARCH: ${
 if(DEFINED ENV{OCPN_TARGET})
     message(STATUS "${CMLOC}OCPN_TARGET defined: $ENV{OCPN_TARGET}")
     if(OCPN_FLATPAK_CONFIG OR OCPN_FLATPAK_BUILD OR MINGW OR MSVC OR
-		(("$ENV{OCPN_TARGET}" STREQUAL "bookworm-armhf" OR "$ENV{OCPN_TARGET}" STREQUAL "bookworm-arm64") AND "$ENV{BUILD_ENV}" STREQUAL "debian") OR
+        (("$ENV{OCPN_TARGET}" STREQUAL "bookworm-armhf" OR "$ENV{OCPN_TARGET}" STREQUAL "bookworm-arm64") AND "$ENV{BUILD_ENV}" STREQUAL "debian") OR
         (("$ENV{OCPN_TARGET}" STREQUAL "bullseye-armhf" OR "$ENV{OCPN_TARGET}" STREQUAL "bullseye-arm64") AND "$ENV{WX_VER}" STREQUAL "32" AND "$ENV{BUILD_ENV}" STREQUAL "debian" ))
         message(STATUS "${CMLOC}Including $ENV{OCPN_TARGET} $ENV{BUILD_ENV}")
         set(PACKAGING_NAME "${PKG_NVR}-${PKG_TARGET}-${ARCH}${PKG_TARGET_WX_VER}${PKG_BUILD_GTK}-${PKG_TARGET_VERSION}-$ENV{OCPN_TARGET}")
@@ -546,7 +546,7 @@ if(NOT QT_ANDROID)
     endif()
     message(STATUS "${CMLOC}wxWidgets_Version: ${WXWIDGETS_FORCE_VERSION}")
 
-	if(WXWIDGETS_FORCE_VERSION)
+    if(WXWIDGETS_FORCE_VERSION)
         set(wxWidgets_CONFIG_OPTIONS --version=${WXWIDGETS_FORCE_VERSION})
     endif()
 
@@ -584,6 +584,8 @@ if(NOT QT_ANDROID)
     message(STATUS "${CMLOC} Revised wxWidgets Libraries: ${wxWidgets_LIBRARIES}")
 else(NOT QT_ANDROID)
     IF(_wx_selected_config MATCHES "androideabi-qt-arm64")
+        MESSAGE(STATUS "${CMLOC}Processing androideabi-qt-arm64 includes")
+
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm64_O3/qtbase/include")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm64_O3/qtbase/include/QtCore")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm64_O3/qtbase/include/QtWidgets")
@@ -609,6 +611,7 @@ else(NOT QT_ANDROID)
           )
 
     ELSE(_wx_selected_config MATCHES "androideabi-qt-arm64")
+        MESSAGE(STATUS "${CMLOC}Processing androideabi-qt-armhf includes")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm32_19_O3/qtbase/include")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm32_19_O3/qtbase/include/QtCore")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm32_19_O3/qtbase/include/QtWidgets")
@@ -636,6 +639,10 @@ else(NOT QT_ANDROID)
           )
 
     ENDIF(_wx_selected_config MATCHES "androideabi-qt-arm64")
+
+    # Needed for android builds
+    include_directories(BEFORE ${qt_android_include})
+
 endif(NOT QT_ANDROID)
 
 find_package(Gettext REQUIRED)

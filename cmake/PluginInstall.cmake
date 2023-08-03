@@ -53,7 +53,7 @@ if(APPLE)
         install(DIRECTORY data DESTINATION OpenCPN.app/Contents/SharedSupport/plugins/${PACKAGE_NAME})
     endif()
 
-	if(EXISTS ${PROJECT_SOURCE_DIR}/UserIcons)
+    if(EXISTS ${PROJECT_SOURCE_DIR}/UserIcons)
         install(DIRECTORY UserIcons DESTINATION OpenCPN.app/Contents/SharedSupport/plugins/${PACKAGE_NAME})
     endif()
 
