@@ -375,6 +375,32 @@ int dashboard_pi::Init(void) {
 		HandleXDR(ev);
 	});
 
+	// $--RPM
+	wxDEFINE_EVENT(EVT_183_RPM, ObservedEvt);
+	NMEA0183Id id_rpm = NMEA0183Id("RPM");
+	listener_rpm = std::move(GetListener(id_rpm, EVT_183_RPM, this));
+	Bind(EVT_183_RPM, [&](ObservedEvt ev) {
+		HandleRPM(ev);
+	});
+
+	// $--RSA
+	wxDEFINE_EVENT(EVT_183_RSA, ObservedEvt);
+	NMEA0183Id id_rsa = NMEA0183Id("RSA");
+	listener_rsa = std::move(GetListener(id_rsa, EVT_183_RSA, this));
+	Bind(EVT_183_RSA, [&](ObservedEvt ev) {
+		HandleRSA(ev);
+	});
+
+	// Initialize SignalK Listeners
+	// self.vessels.propulsion
+	wxDEFINE_EVENT(EVT_SIGNALK, ObservedEvt);
+	SignalkId id_signalk = SignalkId("self.vessels");
+	listener_signalk = std::move(GetListener(id_signalk, EVT_SIGNALK, this));
+	Bind(EVT_SIGNALK, [&](ObservedEvt ev) {
+		HandleSignalK(ev);
+	});
+
+
 	// initialize NMEA 2000 Listeners
 
 	// PGN 127488 Engine Parameters Rapid Update
@@ -813,8 +839,34 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 
 	std::string payload = GetN0183Payload(id_183_xdr, ev);
 
-	wxLogMessage("Listener Debug: %s", payload);
+	wxLogMessage("XDR Listener Debug: %s", payload);
 }
+
+void dashboard_pi::HandleRPM(ObservedEvt ev) {
+	NMEA0183Id id_183_rpm("RPM");
+
+	std::string payload = GetN0183Payload(id_183_rpm, ev);
+
+	wxLogMessage("RPM Listener Debug: %s", payload);
+}
+
+void dashboard_pi::HandleRSA(ObservedEvt ev) {
+	NMEA0183Id id_183_rsa("RSA");
+
+	std::string payload = GetN0183Payload(id_183_rsa, ev);
+
+	wxLogMessage("RSA Listener Debug: %s", payload);
+}
+
+
+void dashboard_pi::HandleSignalK(ObservedEvt ev) {
+	NMEA0183Id id_signalk("XDR");
+
+	std::string payload = GetN0183Payload(id_signalk, ev);
+
+	wxLogMessage("SignalK Listener Debug: %s", payload);
+}
+
 
 
 // This method is invoked by OpenCPN when we specify WANTS_NMEA_SENTENCES

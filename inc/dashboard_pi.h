@@ -205,28 +205,46 @@ private:
 	void UpdateSKItem(wxJSONValue &item);
 	double GetJsonDouble(wxJSONValue &value); // FFS
 
-	// Used to parse NMEA Sentences
+	// NMEA 183 parser
 	NMEA0183 m_NMEA0183;
+
+	// Initialize NMEA 183 Listeners
 	void HandleXDR(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_xdr;
 
-	// NMEA 2000
+	void HandleRPM(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_rpm;
+
+	void HandleRSA(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_rsa;
+
+	// Initialize SignalK Listeners
+	void HandleSignalK(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_signalk;
+
+
+	// Initialize NMEA 2000 Listeners
 	// index into the payload.
 	// The payload is in Actisense format, so as I've just pasted code from twocan, this simplifies 
 	// accessing the data
 	const int index = 13;
+
 	// Engine Parameters - Rapid Update
 	void HandleN2K_127488(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127488;
+
 	// Engine Parameters - Dynamic
 	void HandleN2K_127489(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127489;
+	
 	// Fluid Levels
 	void HandleN2K_127505(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127505;
+	
 	// Battery Status
 	void HandleN2K_127508(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127508;
+	
 	// Temperature
 	void HandleN2K_130312(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_130312;
