@@ -161,7 +161,6 @@ public:
 	void Notify();
 
 	// The optional OpenCPN plugin methods
-	void SetNMEASentence(wxString &sentence);
 	int GetToolbarToolCount(void);
 	void OnToolbarToolCallback(int id);
 	void ShowPreferencesDialog(wxWindow *parent);
