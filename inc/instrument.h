@@ -48,6 +48,9 @@
 #include <wx/dcbuffer.h>
 #include <wx/dcgraph.h>         // supplemental, for Mac
 
+// Used by the Dashboard Capability Enums
+#include <bitset>
+
 // This is the degree sign in UTF8. It should be correctly handled on both Win & Unix
 const wxString DEGREE_SIGN = wxString::Format(_T("%c"), 0x00B0); 
 
@@ -62,59 +65,70 @@ wxString toSDMM(int NEflag, double a);
 
 class DashboardInstrument;
 class DashboardInstrument_Single;
+class DashboardInstrument_Gauge;
 
-enum {
-	OCPN_DBP_STC_MAIN_ENGINE_RPM = 1 << 0,
-	OCPN_DBP_STC_PORT_ENGINE_RPM = 1 << 1,
-	OCPN_DBP_STC_STBD_ENGINE_RPM = 1 << 2,
-	OCPN_DBP_STC_MAIN_ENGINE_OIL = 1 << 3,
-	OCPN_DBP_STC_PORT_ENGINE_OIL = 1 << 4,
-	OCPN_DBP_STC_STBD_ENGINE_OIL = 1 << 5,
-	OCPN_DBP_STC_MAIN_ENGINE_EXHAUST = 1 << 6,
-	OCPN_DBP_STC_PORT_ENGINE_EXHAUST = 1 << 7,
-	OCPN_DBP_STC_STBD_ENGINE_EXHAUST = 1 << 8,
-	OCPN_DBP_STC_MAIN_ENGINE_WATER = 1 << 9,
-	OCPN_DBP_STC_PORT_ENGINE_WATER = 1 << 10,
-	OCPN_DBP_STC_STBD_ENGINE_WATER = 1 << 11,
-	OCPN_DBP_STC_MAIN_ENGINE_VOLTS = 1 << 12,
-	OCPN_DBP_STC_PORT_ENGINE_VOLTS = 1 << 13,
-	OCPN_DBP_STC_STBD_ENGINE_VOLTS = 1 << 14,
-	OCPN_DBP_STC_MAIN_ENGINE_HOURS = 1 << 15,
-	OCPN_DBP_STC_PORT_ENGINE_HOURS = 1 << 16,
-	OCPN_DBP_STC_STBD_ENGINE_HOURS = 1 << 17,
-	OCPN_DBP_STC_TANK_LEVEL_FUEL_01 = 1 << 18,
-	OCPN_DBP_STC_TANK_LEVEL_WATER_01 = 1 << 19,
-	OCPN_DBP_STC_TANK_LEVEL_OIL = 1 << 20,
-	OCPN_DBP_STC_TANK_LEVEL_LIVEWELL = 1 << 21,
-	OCPN_DBP_STC_TANK_LEVEL_GREY = 1 << 22,
-	OCPN_DBP_STC_TANK_LEVEL_BLACK = 1 << 23,
-	OCPN_DBP_STC_RSA = 1 << 24,
-	OCPN_DBP_STC_START_BATTERY_VOLTS = 1 << 25,
-	OCPN_DBP_STC_START_BATTERY_AMPS = 1 << 26,
-	OCPN_DBP_STC_HOUSE_BATTERY_VOLTS = 1 << 27,
-	OCPN_DBP_STC_HOUSE_BATTERY_AMPS = 1 << 28,
-	OCPN_DBP_STC_TANK_LEVEL_FUEL_02 = 1 << 29,
-	OCPN_DBP_STC_TANK_LEVEL_WATER_02 = 1 << 30,
-	OCPN_DBP_STC_TANK_LEVEL_WATER_03 = 1 << 31
+enum DASH_CAP {
+	OCPN_DBP_STC_MAIN_ENGINE_RPM = 1,
+	OCPN_DBP_STC_PORT_ENGINE_RPM,
+	OCPN_DBP_STC_STBD_ENGINE_RPM,
+	OCPN_DBP_STC_MAIN_ENGINE_OIL,
+	OCPN_DBP_STC_PORT_ENGINE_OIL,
+	OCPN_DBP_STC_STBD_ENGINE_OIL,
+	OCPN_DBP_STC_MAIN_ENGINE_EXHAUST,
+	OCPN_DBP_STC_PORT_ENGINE_EXHAUST,
+	OCPN_DBP_STC_STBD_ENGINE_EXHAUST,
+	OCPN_DBP_STC_MAIN_ENGINE_WATER,
+	OCPN_DBP_STC_PORT_ENGINE_WATER,
+	OCPN_DBP_STC_STBD_ENGINE_WATER,
+	OCPN_DBP_STC_MAIN_ENGINE_VOLTS,
+	OCPN_DBP_STC_PORT_ENGINE_VOLTS,
+	OCPN_DBP_STC_STBD_ENGINE_VOLTS,
+	OCPN_DBP_STC_MAIN_ENGINE_HOURS,
+	OCPN_DBP_STC_PORT_ENGINE_HOURS,
+	OCPN_DBP_STC_STBD_ENGINE_HOURS,
+	OCPN_DBP_STC_TANK_LEVEL_FUEL_01,
+	OCPN_DBP_STC_TANK_LEVEL_WATER_01,
+	OCPN_DBP_STC_TANK_LEVEL_OIL,
+	OCPN_DBP_STC_TANK_LEVEL_LIVEWELL,
+	OCPN_DBP_STC_TANK_LEVEL_GREY,
+	OCPN_DBP_STC_TANK_LEVEL_BLACK,
+	OCPN_DBP_STC_RSA,
+	OCPN_DBP_STC_START_BATTERY_VOLTS,
+	OCPN_DBP_STC_START_BATTERY_AMPS,
+	OCPN_DBP_STC_HOUSE_BATTERY_VOLTS,
+	OCPN_DBP_STC_HOUSE_BATTERY_AMPS,
+	OCPN_DBP_STC_TANK_LEVEL_FUEL_02,
+	OCPN_DBP_STC_TANK_LEVEL_WATER_02,
+	OCPN_DBP_STC_TANK_LEVEL_WATER_03,
+	OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01,
+	OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02,
+	OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01,
+	OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02,
+	OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03,
+	OCPN_DBP_STC_LAST
 };
+
+#define N_INSTRUMENTS  ((int)OCPN_DBP_STC_LAST)  // Number of instrument capability flags
+using CapType = std::bitset<N_INSTRUMENTS>;
 
 class DashboardInstrument : public wxControl {
 public:
-	DashboardInstrument(wxWindow *pparent, wxWindowID id, wxString title, int cap_flag);
+	DashboardInstrument(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag);
 	~DashboardInstrument(){}
 
-	int GetCapacity();
+	CapType GetCapacity();
 	void OnEraseBackground(wxEraseEvent &WXUNUSED(evt));
 	virtual wxSize GetSize(int orient, wxSize hint) = 0;
 	void OnPaint(wxPaintEvent &WXUNUSED(event));
-	virtual void SetData(int st, double data, wxString unit) = 0;
+	virtual void SetData(DASH_CAP st, double data, wxString unit) = 0;
+	void SetCapFlag(DASH_CAP val) { m_cap_flag.set(val); }
+	bool HasCapFlag(DASH_CAP val) { return m_cap_flag.test(val); }
 	void SetDrawSoloInPane(bool value);
 	void MouseEvent(wxMouseEvent &event);
-      
 	int instrumentTypeId;
 
 protected:
-	int m_cap_flag;
+	CapType m_cap_flag;
 	int m_TitleHeight;
 	wxString m_title;
 	virtual void Draw(wxGCDC *dc) = 0;
@@ -125,11 +139,11 @@ private:
 
 class DashboardInstrument_Single : public DashboardInstrument {
 public:
-	DashboardInstrument_Single(wxWindow *pparent, wxWindowID id, wxString title, int cap, wxString format);
+	DashboardInstrument_Single(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap, wxString format);
 	~DashboardInstrument_Single(){}
 
 	wxSize GetSize(int orient, wxSize hint);
-	void SetData(int st, double data, wxString unit);
+	void SetData(DASH_CAP st, double data, wxString unit);
 
 protected:
 	wxString m_data;
@@ -137,6 +151,21 @@ protected:
 	int m_DataHeight;
 	
 	void Draw(wxGCDC *dc);
+};
+
+// A simple gauge using the wxGauge Control
+class DashboardInstrument_Gauge : public DashboardInstrument
+{
+public:
+	DashboardInstrument_Gauge(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag);
+	~DashboardInstrument_Gauge(void);
+	wxGauge *gauge;
+	wxSize GetSize(int orient, wxSize hint);
+	void SetData(DASH_CAP st, double data, wxString unit);
+
+protected:
+	void Draw(wxGCDC* dc);
+
 };
 
 #endif // _INSTRUMENT_H_

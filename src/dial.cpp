@@ -66,7 +66,7 @@ double deg2rad(double angle) {
       return angle/180.0*M_PI;
 }
 
-DashboardInstrument_Dial::DashboardInstrument_Dial(wxWindow *parent, wxWindowID id, wxString title, int cap_flag,
+DashboardInstrument_Dial::DashboardInstrument_Dial(wxWindow *parent, wxWindowID id, wxString title, DASH_CAP cap_flag,
                   int s_angle, int r_angle, int s_value, int e_value) : DashboardInstrument(parent, id, title, cap_flag) {
       m_AngleStart = s_angle;
       m_AngleRange = r_angle;
@@ -110,7 +110,7 @@ void DashboardInstrument_Dial::SetOptionMainValue(wxString format, DialPositionO
 	m_MainValueOption = option;
 }
 
-void DashboardInstrument_Dial::SetOptionExtraValue(int cap, wxString format, DialPositionOption option) {
+void DashboardInstrument_Dial::SetOptionExtraValue(DASH_CAP cap, wxString format, DialPositionOption option) {
 	m_ExtraValueCap = cap; 
 	m_cap_flag |= cap; 
 	m_ExtraValueFormat = format; 
@@ -131,7 +131,7 @@ wxSize DashboardInstrument_Dial::GetSize(int orient, wxSize hint) {
       }
 }
 
-void DashboardInstrument_Dial::SetData(int st, double data, wxString unit) {
+void DashboardInstrument_Dial::SetData(DASH_CAP st, double data, wxString unit) {
       if (st == m_MainValueCap) {
             m_MainValue = data;
             m_MainValueUnit = unit;

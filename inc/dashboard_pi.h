@@ -115,14 +115,14 @@ public:
 
 class DashboardInstrumentContainer {
 public:
-	DashboardInstrumentContainer(int id, DashboardInstrument *instrument, int capa) {
+	DashboardInstrumentContainer(int id, DashboardInstrument *instrument, CapType capa) {
 		m_ID = id; m_pInstrument = instrument; m_cap_flag = capa; }
 
 	~DashboardInstrumentContainer(){ delete m_pInstrument; }
 
 	DashboardInstrument *m_pInstrument;
 	int m_ID;
-	int m_cap_flag;
+	CapType m_cap_flag;
 };
 
 // Dynamic arrays of pointers need explicit macros in wx261
@@ -180,7 +180,7 @@ private:
 	bool LoadConfig(void);
 	void ApplyConfig(void);
 	// Send deconstructed NMEA 1083 sentence values to each display
-	void SendSentenceToAllInstruments(int st, double value, wxString unit);
+	void SendSentenceToAllInstruments(DASH_CAP st, double value, wxString unit);
 	// Conversion utilities
 	double Celsius2Fahrenheit(double temperature);
 	double Fahrenheit2Celsius(double temperature);
@@ -207,6 +207,21 @@ private:
 
 	// Used to parse NMEA Sentences
 	NMEA0183 m_NMEA0183;
+
+	// Initialize NMEA 183 Listeners
+	void HandleXDR(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_xdr;
+
+	void HandleRPM(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_rpm;
+
+	void HandleRSA(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_rsa;
+
+	// Initialize SignalK Listeners
+	void HandleSignalK(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_signalk;
+
 
 	// NMEA 2000
 	// index into the payload.
@@ -441,7 +456,7 @@ public:
     void OnContextMenuSelect(wxCommandEvent& evt);
     bool isInstrumentListEqual(const wxArrayInt& list);
     void SetInstrumentList(wxArrayInt list);
-    void SendSentenceToAllInstruments(int st, double value, wxString unit);
+    void SendSentenceToAllInstruments(DASH_CAP st, double value, wxString unit);
     void ChangePaneOrientation(int orient, bool updateAUImgr);
 
 	// TODO: OnKeyPress pass event to main window or disable focus

@@ -99,15 +99,15 @@ extern double deg2rad(double angle);
 //+------------------------------------------------------------------------------
 class DashboardInstrument_Dial: public DashboardInstrument {
 public:
-	DashboardInstrument_Dial(wxWindow *parent, wxWindowID id, wxString title, int cap_flag, int s_angle, int r_angle, int s_value, int e_value);
+	DashboardInstrument_Dial(wxWindow *parent, wxWindowID id, wxString title, DASH_CAP cap_flag, int s_angle, int r_angle, int s_value, int e_value);
 	~DashboardInstrument_Dial(void);
 
 	wxSize GetSize(int orient, wxSize hint);
-	void SetData(int, double, wxString);
+	void SetData(DASH_CAP cap, double units, wxString format);
 	void SetOptionMarker(double step, DialMarkerOption option, int offset);
 	void SetOptionLabel(double step, DialLabelOption option, wxArrayString labels = wxArrayString()); // { m_LabelStep = step; m_LabelOption = option; m_LabelArray = labels; }
 	void SetOptionMainValue(wxString format, DialPositionOption option);
-	void SetOptionExtraValue(int cap, wxString format, DialPositionOption option);
+	void SetOptionExtraValue(DASH_CAP cap, wxString format, DialPositionOption option);
 
 private:
 
@@ -115,13 +115,13 @@ protected:
 	int m_cx, m_cy, m_radius;
 	int m_AngleStart, m_AngleRange;
 	double m_MainValue;
-	int m_MainValueCap;
+	DASH_CAP m_MainValueCap;
 	double m_MainValueMin, m_MainValueMax;
 	wxString m_MainValueFormat;
 	wxString m_MainValueUnit;
 	DialPositionOption m_MainValueOption;
 	double m_ExtraValue;
-	int m_ExtraValueCap;
+	DASH_CAP m_ExtraValueCap;
 	wxString m_ExtraValueFormat;
 	wxString m_ExtraValueUnit;
 	DialPositionOption m_ExtraValueOption;

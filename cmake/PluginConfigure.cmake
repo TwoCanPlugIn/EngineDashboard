@@ -584,7 +584,9 @@ if(NOT QT_ANDROID)
     message(STATUS "${CMLOC} Revised wxWidgets Libraries: ${wxWidgets_LIBRARIES}")
 else(NOT QT_ANDROID)
     IF(_wx_selected_config MATCHES "androideabi-qt-arm64")
-        set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm64_O3/qtbase/include")
+    MESSAGE(STATUS "${CMLOC}Processing androideabi-qt-arm64 includes")
+
+    set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm64_O3/qtbase/include")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm64_O3/qtbase/include/QtCore")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm64_O3/qtbase/include/QtWidgets")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm64_O3/qtbase/include/QtGui")
@@ -609,6 +611,7 @@ else(NOT QT_ANDROID)
           )
 
     ELSE(_wx_selected_config MATCHES "androideabi-qt-arm64")
+    MESSAGE(STATUS "${CMLOC}Processing androideabi-qt-armhf includes")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm32_19_O3/qtbase/include")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm32_19_O3/qtbase/include/QtCore")
         set(qt_android_include ${qt_android_include} "${OCPN_Android_Common}/qt5/build_arm32_19_O3/qtbase/include/QtWidgets")
@@ -636,7 +639,11 @@ else(NOT QT_ANDROID)
           )
 
     ENDIF(_wx_selected_config MATCHES "androideabi-qt-arm64")
-endif(NOT QT_ANDROID)
+
+    # Needed for android builds
+    include_directories(BEFORE ${qt_android_include})
+
+    endif(NOT QT_ANDROID)
 
 find_package(Gettext REQUIRED)
 

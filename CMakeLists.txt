@@ -36,10 +36,10 @@ set(PACKAGE "engine_dashboard")
 set(SHORT_DESCRIPTION "Engine Dashboard, Displays Engine parameters.")
 set(LONG_DESCRIPTION "Engine Dashboard, Displays Engine RPM, Oil pressure, Water temperature, Alternator output and Tank levels.") 
 set(VERSION_MAJOR "1")
-set(VERSION_MINOR "5")
+set(VERSION_MINOR "6")
 set(VERSION_PATCH "0")
 set(VERSION_TWEAK "0")
-set(VERSION_DATE "25/04/2023")
+set(VERSION_DATE "30/08/2023")
 set(OCPN_MIN_VERSION "ov50")
 set(OCPN_API_VERSION_MAJOR "1")
 set(OCPN_API_VERSION_MINOR "18")
@@ -153,7 +153,6 @@ SET(SRC_NMEA0183
     nmea0183/src/sentence.cpp
     nmea0183/src/rsa.cpp    
     nmea0183/src/rpm.cpp
-    #nmea0183/inc/rsa.hpp
     nmea0183/src/xdr.cpp
     nmea0183/src/talkerid.cpp
     nmea0183/src/hexvalue.cpp
@@ -165,6 +164,7 @@ SET(INC_NMEA0183
     nmea0183/inc/response.hpp
     nmea0183/inc/sentence.hpp
     nmea0183/inc/rpm.hpp
+    nmea0183/inc/rsa.hpp
     nmea0183/inc/xdr.hpp)
 
 SET(SRC_JSON

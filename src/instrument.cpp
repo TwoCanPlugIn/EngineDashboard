@@ -7,6 +7,7 @@
 //
 // Version 1.0
 // 10-10-2019
+// 1.1 30-08-2023 Added simple Gauge display using wxGauge control
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -53,10 +54,10 @@
 //
 //----------------------------------------------------------------
 
-DashboardInstrument::DashboardInstrument(wxWindow *pparent, wxWindowID id, wxString title, int cap_flag)
+DashboardInstrument::DashboardInstrument(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag)
       :wxControl(pparent, id, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE) {
       m_title = title;
-      m_cap_flag = cap_flag;
+      m_cap_flag.set(cap_flag);
 
       SetBackgroundStyle(wxBG_STYLE_CUSTOM);
       SetDrawSoloInPane(false);
@@ -88,7 +89,7 @@ void DashboardInstrument::MouseEvent(wxMouseEvent &event) {
     }
 }
 
-int DashboardInstrument::GetCapacity() {
+CapType DashboardInstrument::GetCapacity() {
 	return m_cap_flag;
 }
 
@@ -184,7 +185,7 @@ void DashboardInstrument::OnPaint(wxPaintEvent& WXUNUSED(event)) {
 //
 //----------------------------------------------------------------
 
-DashboardInstrument_Single::DashboardInstrument_Single(wxWindow *pparent, wxWindowID id, wxString title, int cap_flag, wxString format)
+DashboardInstrument_Single::DashboardInstrument_Single(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag, wxString format)
       :DashboardInstrument(pparent, id, title, cap_flag) {
       m_format = format;
       m_data = _T("---");
@@ -234,8 +235,8 @@ void DashboardInstrument_Single::Draw(wxGCDC* dc) {
 
 }
 
-void DashboardInstrument_Single::SetData(int st, double data, wxString unit) {
-      if (m_cap_flag & st) {
+void DashboardInstrument_Single::SetData(DASH_CAP st, double data, wxString unit) {
+      if (m_cap_flag.test(st)) {
             if (!std::isnan(data) && (data < 9999)) {
                 if (unit == _T("C"))
                   m_data = wxString::Format(m_format, data)+DEGREE_SIGN+_T("C");
@@ -266,6 +267,54 @@ void DashboardInstrument_Single::SetData(int st, double data, wxString unit) {
       }
 }
 
+// Dashboard Gauge - simple display using wxGauge
+DashboardInstrument_Gauge::DashboardInstrument_Gauge(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag)
+	:DashboardInstrument(pparent, id, title, cap_flag) {
+	// Need to determine the size of the control so as not to obscure title
+	int gaugeWidth;
+	// Get the height of the text label, position the gauge below it
+	wxClientDC dc(this);
+	dc.GetTextExtent(m_title, &gaugeWidth, &m_TitleHeight, 0, 0, g_pFontTitle);
+	// Create the gauge, positioned below the text label and with a range of 100%
+	gauge = new wxGauge(pparent, wxID_ANY, 100, wxPoint(0, m_TitleHeight), wxDefaultSize, wxGA_HORIZONTAL);
+}
+
+DashboardInstrument_Gauge::~DashboardInstrument_Gauge(void) {
+	delete gauge;
+}
+
+wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint) {
+	wxClientDC dc(this);
+	int w;
+	int h = gauge->GetSize().GetHeight();
+	dc.GetTextExtent(m_title, &w, &m_TitleHeight, 0, 0, g_pFontTitle);
+	// BUG BUG Work out what to do wrt to orientation
+	//if (orient == wxHORIZONTAL) {
+	//	w = wxMax(h, DefaultWidth + m_TitleHeight);
+	//	return wxSize(w - m_TitleHeight, w);
+	//}
+	//else {
+	//	w = wxMax(hint.x, DefaultWidth + h);
+	//	return wxSize(w, m_TitleHeight + w);
+	//}
+	return wxSize(gauge->GetSize().GetWidth(), m_TitleHeight + gauge->GetSize().GetHeight());
+}
+
+void DashboardInstrument_Gauge::Draw(wxGCDC* dc) {
+	// This seems to be called on a resize event
+	wxSize size = GetClientSize();
+	gauge->SetSize(size);
+	gauge->Refresh();
+}
+
+void DashboardInstrument_Gauge::SetData(DASH_CAP st, double data, wxString unit) {
+	if (m_cap_flag.test(st)) {
+		if (!std::isnan(data) && (data < 100)) { // Shouldn't have values greater than 100 %
+			gauge->SetValue((int)data);
+			gauge->Refresh();
+		}
+	}
+}
 
 
 /**************************************************************************/
