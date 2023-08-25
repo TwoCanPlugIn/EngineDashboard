@@ -295,7 +295,7 @@ wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint) {
 	//else {
 	//	width = wxMax(hint.x, DefaultWidth);
 	//	return wxSize(width, m_TitleHeight + height);
-	}
+	//}
 	//return wxSize(gauge->GetSize().GetWidth(), m_TitleHeight + gauge->GetSize().GetHeight());
 }
 
