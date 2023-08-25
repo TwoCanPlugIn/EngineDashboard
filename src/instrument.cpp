@@ -275,8 +275,8 @@ DashboardInstrument_Gauge::DashboardInstrument_Gauge(wxWindow *pparent, wxWindow
 	// Get the height of the text label, position the gauge below it
 	wxClientDC dc(this);
 	dc.GetTextExtent(m_title, &width, &m_TitleHeight, 0, 0, g_pFontTitle);
-	// Create the gauge, positioned below the text label and with a range of 100%
-	gauge = new wxGauge(pparent, wxID_ANY, 100, wxPoint(0, m_TitleHeight), wxDefaultSize, wxGA_HORIZONTAL);
+	// Create the gauge, positioned below the text label, same size as the Text Label and with a range of 100%
+	gauge = new wxGauge(pparent, wxID_ANY, 100, wxPoint(0, m_TitleHeight), wxSize(width, m_TitleHeight), wxGA_HORIZONTAL);
 }
 
 DashboardInstrument_Gauge::~DashboardInstrument_Gauge(void) {
@@ -301,8 +301,8 @@ wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint) {
 
 void DashboardInstrument_Gauge::Draw(wxGCDC* dc) {
 	// This seems to be called on a resize event
-	//wxSize size = GetClientSize();
-	//gauge->SetSize(size);
+	wxSize size = GetClientSize();
+	gauge->SetSize(size);
 	gauge->Refresh();
 }
 
