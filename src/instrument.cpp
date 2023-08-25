@@ -271,10 +271,10 @@ void DashboardInstrument_Single::SetData(DASH_CAP st, double data, wxString unit
 DashboardInstrument_Gauge::DashboardInstrument_Gauge(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag)
 	:DashboardInstrument(pparent, id, title, cap_flag) {
 	// Need to determine the size of the control so as not to obscure title
-	int gaugeWidth;
+	int width;
 	// Get the height of the text label, position the gauge below it
 	wxClientDC dc(this);
-	dc.GetTextExtent(m_title, &gaugeWidth, &m_TitleHeight, 0, 0, g_pFontTitle);
+	dc.GetTextExtent(m_title, &width, &m_TitleHeight, 0, 0, g_pFontTitle);
 	// Create the gauge, positioned below the text label and with a range of 100%
 	gauge = new wxGauge(pparent, wxID_ANY, 100, wxPoint(0, m_TitleHeight), wxDefaultSize, wxGA_HORIZONTAL);
 }
@@ -285,25 +285,24 @@ DashboardInstrument_Gauge::~DashboardInstrument_Gauge(void) {
 
 wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint) {
 	wxClientDC dc(this);
-	int w;
-	int h = gauge->GetSize().GetHeight();
-	dc.GetTextExtent(m_title, &w, &m_TitleHeight, 0, 0, g_pFontTitle);
+	int width;
+	int height = gauge->GetSize().GetHeight();
+	dc.GetTextExtent(m_title, &width, &m_TitleHeight, 0, 0, g_pFontTitle);
 	// BUG BUG Work out what to do wrt to orientation
-	//if (orient == wxHORIZONTAL) {
-	//	w = wxMax(h, DefaultWidth + m_TitleHeight);
-	//	return wxSize(w - m_TitleHeight, w);
+	//if (orient == wxHORIZONTAL) {;
+		return wxSize(wxMax(height + m_TitleHeight, hint.GetHeight()), wxMax(width, hint.GetWidth()));
 	//}
 	//else {
-	//	w = wxMax(hint.x, DefaultWidth + h);
-	//	return wxSize(w, m_TitleHeight + w);
-	//}
-	return wxSize(gauge->GetSize().GetWidth(), m_TitleHeight + gauge->GetSize().GetHeight());
+	//	width = wxMax(hint.x, DefaultWidth);
+	//	return wxSize(width, m_TitleHeight + height);
+	}
+	//return wxSize(gauge->GetSize().GetWidth(), m_TitleHeight + gauge->GetSize().GetHeight());
 }
 
 void DashboardInstrument_Gauge::Draw(wxGCDC* dc) {
 	// This seems to be called on a resize event
-	wxSize size = GetClientSize();
-	gauge->SetSize(size);
+	//wxSize size = GetClientSize();
+	//gauge->SetSize(size);
 	gauge->Refresh();
 }
 
