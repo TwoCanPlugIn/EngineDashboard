@@ -286,12 +286,12 @@ DashboardInstrument_Gauge::~DashboardInstrument_Gauge(void) {
 
 wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint) {
 	wxClientDC dc(this);
-	int width;
+	int width = GetClientSize().GetWidth();
 	int height = gauge->GetSize().GetHeight();
-	dc.GetTextExtent(m_title, &width, &m_TitleHeight, 0, 0, g_pFontTitle);
+	//dc.GetTextExtent(m_title, &width, &m_TitleHeight, 0, 0, g_pFontTitle);
 	// BUG BUG Work out what to do wrt to orientation
 	//if (orient == wxHORIZONTAL) {;
-		return wxSize(wxMax(height + m_TitleHeight, hint.GetHeight()), wxMax(width, hint.GetWidth()));
+		return wxSize(wxMax(m_TitleHeight, hint.GetHeight()), wxMax(width, hint.GetWidth()));
 	//}
 	//else {
 	//	width = wxMax(hint.x, DefaultWidth);

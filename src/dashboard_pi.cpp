@@ -818,14 +818,17 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			// Units are meant to be in percent, but they seem to range from 0 to 1
 			if (update_path == _T("tanks.freshWater.0.currentLevel")) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, GetJsonDouble(value) * 100, xdrunit);
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, GetJsonDouble(value) * 100, xdrunit);
 			}
 
 			if (update_path == _T("tanks.freshWater.1.currentLevel")) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, GetJsonDouble(value) * 100, xdrunit);
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, GetJsonDouble(value) * 100, xdrunit);
 			}
 
 			if (update_path == _T("tanks.freshWater.2.currentLevel")) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, GetJsonDouble(value) * 100, xdrunit);
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, GetJsonDouble(value) * 100, xdrunit);
 			}
 
 			if (update_path == _T("tanks.wasteWater.0.currentLevel")) {
@@ -838,10 +841,12 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 
 			if (update_path == _T("tanks.fuel.0.currentLevel")) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, GetJsonDouble(value) * 100, xdrunit);
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, GetJsonDouble(value) * 100, xdrunit);
 			}
 
 			if (update_path == _T("tanks.fuel.1.currentLevel")) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, GetJsonDouble(value) * 100, xdrunit);
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, GetJsonDouble(value) * 100, xdrunit);
 			}
 		}
 	}
@@ -1257,9 +1262,11 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					// TwoCan Plugin Transducer Names
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("FUEL")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("H2O")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("OIL")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
@@ -1276,18 +1283,23 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					// NMEA 183 v4.11 Transducer Names
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#0")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, xdrdata, xdrunit);
 					}
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#0")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#2")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("OIL#0")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
@@ -1312,18 +1324,23 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					// NMEA 183 v4.11 Transducer Names
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#0")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, xdrdata, xdrunit);
 					}
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#0")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER#2")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("OIL#0")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
@@ -1340,18 +1357,23 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					// Ship Modul/Martron Transducer Names
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL0")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, xdrdata, xdrunit);
 					}
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER0")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FRESHWATER2")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, xdrdata, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("OIL0")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, xdrdata, xdrunit);
@@ -1683,20 +1705,25 @@ void dashboard_pi::HandleN2K_127505(ObservedEvt ev) {
 			case 0: // Fuel
 				if (instance == 0) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, tankLevel / 250, "Level");
+					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, tankLevel / 250, "Level");
 				}
 				if (instance == 1) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, tankLevel / 250, "Level");
+					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, tankLevel / 250, "Level");
 				}
 				break;
 			case 1: // Freshwater
 				if (instance == 0) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, tankLevel / 250, "Level");
+					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, tankLevel / 250, "Level");
 				}
 				if (instance == 1) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, tankLevel / 250, "Level");
+					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, tankLevel / 250, "Level");
 				}
 				if (instance == 2) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, tankLevel / 250, "Level");
+					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, tankLevel / 250, "Level");
 				}
 				break;
 			case 2: // Waste water
