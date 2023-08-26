@@ -302,7 +302,7 @@ wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint) {
 
 void DashboardInstrument_Gauge::Draw(wxGCDC* dc) {
 	// This seems to be called on a resize event
-	gauge->SetSize(wxSize(GetClientSize().GetWidth(), m_TitleHeight);
+	gauge->SetSize(wxSize(GetClientSize().GetWidth(), m_TitleHeight));
 	gauge->Refresh();
 }
 
