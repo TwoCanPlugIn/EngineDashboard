@@ -270,14 +270,8 @@ void DashboardInstrument_Single::SetData(DASH_CAP st, double data, wxString unit
 // Dashboard Gauge - simple display using wxGauge
 DashboardInstrument_Gauge::DashboardInstrument_Gauge(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag)
 	:DashboardInstrument(pparent, id, title, cap_flag) {
-	// Need to determine the size of the control so as not to obscure title
-	int width;
-  width = GetClientSize().GetWidth();
-	// Get the height of the text label, position the gauge below it
-	//wxClientDC dc(this);
-	//dc.GetTextExtent(m_title, &width, &m_TitleHeight, 0, 0, g_pFontTitle);
-	// Create the gauge, positioned below the text label, same size as the Text Label and with a range of 100%
-	gauge = new wxGauge(pparent, wxID_ANY, 100, wxPoint(0, m_TitleHeight), wxSize(width, m_TitleHeight), wxGA_HORIZONTAL);
+	// Create the gauge, positioned below the text label, the same height as the Text Label and with a range of 100%
+	gauge = new wxGauge(pparent, wxID_ANY, 100, wxPoint(0, m_TitleHeight), wxSize(GetClientSize().GetWidth(), m_TitleHeight), wxGA_HORIZONTAL);
 }
 
 DashboardInstrument_Gauge::~DashboardInstrument_Gauge(void) {
@@ -285,19 +279,8 @@ DashboardInstrument_Gauge::~DashboardInstrument_Gauge(void) {
 }
 
 wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint) {
-	wxClientDC dc(this);
-	int width = GetClientSize().GetWidth();
-	int height = gauge->GetSize().GetHeight();
-	//dc.GetTextExtent(m_title, &width, &m_TitleHeight, 0, 0, g_pFontTitle);
-	// BUG BUG Work out what to do wrt to orientation
-	//if (orient == wxHORIZONTAL) {;
-		return wxSize(wxMax(m_TitleHeight, hint.GetHeight()), wxMax(width, hint.GetWidth()));
-	//}
-	//else {
-	//	width = wxMax(hint.x, DefaultWidth);
-	//	return wxSize(width, m_TitleHeight + height);
-	//}
-	//return wxSize(gauge->GetSize().GetWidth(), m_TitleHeight + gauge->GetSize().GetHeight());
+	// No need to worry about orientation ?? if (orient == wxHORIZONTAL) { ...
+		return wxSize(wxMax(GetClientSize().GetWidth(), hint.GetWidth()), wxMax(m_TitleHeight, hint.GetHeight()));
 }
 
 void DashboardInstrument_Gauge::Draw(wxGCDC* dc) {
@@ -310,7 +293,7 @@ void DashboardInstrument_Gauge::SetData(DASH_CAP st, double data, wxString unit)
 	if (m_cap_flag.test(st)) {
 		if (!std::isnan(data) && (data < 100)) { // Shouldn't have values greater than 100 %
 			gauge->SetValue((int)data);
-			gauge->Refresh();
+			//gauge->Refresh();
 		}
 	}
 }
