@@ -140,6 +140,7 @@ void DashboardInstrument_Dial::SetData(DASH_CAP st, double data, wxString unit) 
             m_ExtraValue = data;
             m_ExtraValueUnit = unit;
       }
+      wxLogMessage("Debug: %d, %d", st, data);
 }
 
 void DashboardInstrument_Dial::Draw(wxGCDC* bdc) {
