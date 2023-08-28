@@ -267,33 +267,48 @@ void DashboardInstrument_Single::SetData(DASH_CAP st, double data, wxString unit
       }
 }
 
-// Dashboard Gauge - simple display using wxGauge
+// Dashboard Gauge
+// Gauge Display, Note it's height is the same as the title, and poitioned below the title
 DashboardInstrument_Gauge::DashboardInstrument_Gauge(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag)
-	:DashboardInstrument(pparent, id, title, cap_flag) {
-	// Create the gauge, positioned below the text label, the same height as the Text Label and with a range of 100%
-	gauge = new wxGauge(pparent, wxID_ANY, 100, wxPoint(0, m_TitleHeight), wxSize(GetClientSize().GetWidth(), m_TitleHeight), wxGA_HORIZONTAL);
+	:DashboardInstrument(pparent, id, title, cap_flag)
+{
+	int w;
+	wxClientDC dc(this);
+	dc.GetTextExtent(m_title, &w, &m_TitleHeight, 0, 0, g_pFontTitle);
+
+	gauge = new wxGauge(this, wxID_ANY, 100, wxPoint(0, m_TitleHeight), 
+		wxSize(DefaultWidth, m_TitleHeight));
 }
 
 DashboardInstrument_Gauge::~DashboardInstrument_Gauge(void) {
 	delete gauge;
 }
 
-wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint) {
-	// No need to worry about orientation ?? if (orient == wxHORIZONTAL) { ...
-		return wxSize(wxMax(GetClientSize().GetWidth(), hint.GetWidth()), wxMax(m_TitleHeight, hint.GetHeight()));
+wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint)
+{
+	wxClientDC dc(this);
+	int w;
+	dc.GetTextExtent(m_title, &w, &m_TitleHeight, 0, 0, g_pFontTitle);
+	
+	if (orient == wxHORIZONTAL) {
+		w = wxMax(hint.y, DefaultWidth);
+	}
+	else {
+		w = wxMax(hint.x, DefaultWidth);
+	}
+      return wxSize(w, 2 * m_TitleHeight);
 }
 
-void DashboardInstrument_Gauge::Draw(wxGCDC* dc) {
-	// This seems to be called on a resize event
-	gauge->SetSize(wxSize(GetClientSize().GetWidth(), m_TitleHeight));
-	gauge->Refresh();
+void DashboardInstrument_Gauge::Draw(wxGCDC* dc)
+{
+	wxSize size = dc->GetSize();
+	gauge->SetSize(size.GetWidth(), m_TitleHeight);
 }
 
 void DashboardInstrument_Gauge::SetData(DASH_CAP st, double data, wxString unit) {
 	if (m_cap_flag.test(st)) {
 		if (!std::isnan(data) && (data < 100)) { // Shouldn't have values greater than 100 %
 			gauge->SetValue((int)data);
-			//gauge->Refresh();
 		}
 	}
 }
