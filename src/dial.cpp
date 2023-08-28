@@ -112,7 +112,7 @@ void DashboardInstrument_Dial::SetOptionMainValue(wxString format, DialPositionO
 
 void DashboardInstrument_Dial::SetOptionExtraValue(DASH_CAP cap, wxString format, DialPositionOption option) {
 	m_ExtraValueCap = cap; 
-	m_cap_flag |= cap; 
+	m_cap_flag.set(cap); 
 	m_ExtraValueFormat = format; 
 	m_ExtraValueOption = option;
 }
