@@ -6,7 +6,7 @@
 // Alternator Voltage, Engine Hours andFluid Levels in a dashboard
 //
 // 1.0 10-10-2019 - Initial Release
-// 1.6 30-08-2023 - Simple Gauge display using wxGauge control and Unicode Block characters
+// 1.6 30-08-2023 - Simple Gauge display using wxGauge control and Text Dasboard using Unicode Block characters
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
