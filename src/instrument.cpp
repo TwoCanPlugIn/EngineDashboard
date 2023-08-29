@@ -299,8 +299,7 @@ wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint)
       return wxSize(w, 2 * m_TitleHeight);
 }
 
-void DashboardInstrument_Gauge::Draw(wxGCDC* dc)
-{
+void DashboardInstrument_Gauge::Draw(wxGCDC* dc) {
 	wxSize size = dc->GetSize();
 	gauge->SetSize(size.GetWidth(), m_TitleHeight);
 }
@@ -312,6 +311,93 @@ void DashboardInstrument_Gauge::SetData(DASH_CAP st, double data, wxString unit)
 		}
 	}
 }
+
+
+
+// Simple Gauge using Unicode Block characters
+DashboardInstrument_Block::DashboardInstrument_Block(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag, wxString format)
+	:DashboardInstrument(pparent, id, title, cap_flag) {
+	m_format = format;
+	m_data = _T("---");
+	m_DataHeight = 0;
+
+}
+
+wxSize DashboardInstrument_Block::GetSize(int orient, wxSize hint) {
+	wxClientDC dc(this);
+	int w;
+	dc.GetTextExtent(m_title, &w, &m_TitleHeight, 0, 0, g_pFontTitle);
+	dc.GetTextExtent(_T("000000000000000"), &w, &m_DataHeight, 0, 0, g_pFontData);
+
+	if (orient == wxHORIZONTAL) {
+		return wxSize(wxMax(w, DefaultWidth), wxMax(hint.y, m_TitleHeight + m_DataHeight));
+	}
+	else {
+		return wxSize(wxMax(w, hint.x), m_TitleHeight + m_DataHeight);
+	}
+}
+
+void DashboardInstrument_Block::Draw(wxGCDC* dc) {
+	wxColour cl;
+#ifdef __WXMSW__
+	wxBitmap tbm(dc->GetSize().x, m_DataHeight, -1);
+	wxMemoryDC tdc(tbm);
+	wxColour c2;
+	GetGlobalColor(_T("DASHB"), &c2);
+	tdc.SetBackground(c2);
+	tdc.Clear();
+
+	tdc.SetFont(*g_pFontData);
+	if (m_Value > 20) {
+		GetGlobalColor(_T("DASHF"), &cl);
+	}
+	else {
+		GetGlobalColor(_T("DASHR"), &cl);
+	}
+	tdc.SetTextForeground(cl);
+
+	tdc.DrawText(m_data, 0, 0);
+
+	tdc.SelectObject(wxNullBitmap);
+
+	dc->DrawBitmap(tbm, 0, m_TitleHeight, false);
+#else
+	dc->SetFont(*g_pFontData);
+
+	if (m_Value > 20) {
+		GetGlobalColor(_T("DASHF"), &cl);
+	}
+	else {
+		GetGlobalColor(_T("DASHR"), &cl);
+	}
+	dc->SetTextForeground(cl);
+
+	dc->DrawText(m_data, 10, m_TitleHeight);
+
+#endif
+
+}
+
+void DashboardInstrument_Block::SetData(DASH_CAP st, double data, wxString unit) {
+	if (m_cap_flag.test(st)) {
+		if (!std::isnan(data) && (data <= 100)) {
+			if (unit == _T("Level")) {
+				m_Value = (int)data; // class member used to determine foreground colour
+				m_data.Clear();
+				for (int i = 0; i < (int)(data / 10); i++) {
+					m_data.Append(wxString::FromUTF8(u8"\u2588"));
+				}
+				if ((int)data < 90) {
+					m_data.Append(wxString::Format(" (%d%%)", (int)data));
+				}
+			}
+		}
+		else {
+			m_data = _T("---");
+		}
+	}
+}
+
 
 
 /**************************************************************************/

@@ -66,6 +66,7 @@ wxString toSDMM(int NEflag, double a);
 class DashboardInstrument;
 class DashboardInstrument_Single;
 class DashboardInstrument_Gauge;
+class DashboardInstrument_Block;
 
 enum DASH_CAP {
 	OCPN_DBP_STC_MAIN_ENGINE_RPM = 1,
@@ -166,6 +167,24 @@ public:
 protected:
 	void Draw(wxGCDC* dc);
 
+};
+
+class DashboardInstrument_Block : public DashboardInstrument
+{
+public:
+	DashboardInstrument_Block(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap, wxString format);
+	~DashboardInstrument_Block() {}
+
+	wxSize GetSize(int orient, wxSize hint);
+	void SetData(DASH_CAP st, double data, wxString unit);
+
+protected:
+	wxString          m_data;
+	wxString          m_format;
+	int               m_DataHeight;
+	int 			  m_Value;
+
+	void Draw(wxGCDC* dc);
 };
 
 #endif // _INSTRUMENT_H_

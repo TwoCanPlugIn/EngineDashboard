@@ -3065,19 +3065,19 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				break;
 			}
 			case ID_DBP_FUEL_TANK_GAUGE_01:
-				instrument = new DashboardInstrument_Gauge(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01);
+				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, "%s");
 				break;
 			case ID_DBP_FUEL_TANK_GAUGE_02:
-				instrument = new DashboardInstrument_Gauge(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02);
+				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, "%s");
 				break;
 			case ID_DBP_WATER_TANK_GAUGE_01:
-				instrument = new DashboardInstrument_Gauge(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01);
+				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, "%s");
 				break;
 			case ID_DBP_WATER_TANK_GAUGE_02:
-				instrument = new DashboardInstrument_Gauge(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02);
+				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, "%s");
 				break;
 			case ID_DBP_WATER_TANK_GAUGE_03:
-				instrument = new DashboardInstrument_Gauge(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03);
+				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, "%s");
 				break;
 		}
         if (instrument) {
