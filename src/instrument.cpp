@@ -5,9 +5,8 @@
 // Parses NMEA 0183 RSA, RPM & XDR sentences and displays Engine RPM, Oil Pressure, Water Temperature, 
 // Alternator Voltage, Engine Hours andFluid Levels in a dashboard
 //
-// Version 1.0
-// 10-10-2019
-// 1.1 30-08-2023 Added simple Gauge display using wxGauge control
+// 1.0 10-10-2019 - Initial Release
+// 1.6 30-08-2023 - Simple Gauge display using wxGauge control and Unicode Block characters
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -269,6 +268,7 @@ void DashboardInstrument_Single::SetData(DASH_CAP st, double data, wxString unit
 
 // Dashboard Gauge
 // Gauge Display, Note it's height is the same as the title, and poitioned below the title
+// Not used as something weird occurring on Windows, not being sized or displayed correctly. WTF ??
 DashboardInstrument_Gauge::DashboardInstrument_Gauge(wxWindow *pparent, wxWindowID id, wxString title, DASH_CAP cap_flag)
 	:DashboardInstrument(pparent, id, title, cap_flag)
 {
@@ -289,14 +289,13 @@ wxSize DashboardInstrument_Gauge::GetSize(int orient, wxSize hint)
 	wxClientDC dc(this);
 	int w;
 	dc.GetTextExtent(m_title, &w, &m_TitleHeight, 0, 0, g_pFontTitle);
-	
+
 	if (orient == wxHORIZONTAL) {
-		w = wxMax(hint.y, DefaultWidth);
+		return wxSize(wxMax(w, DefaultWidth), 2 * m_TitleHeight);
 	}
 	else {
-		w = wxMax(hint.x, DefaultWidth);
+		return wxSize(wxMax(w, hint.x), 2 * m_TitleHeight);
 	}
-      return wxSize(w, 2 * m_TitleHeight);
 }
 
 void DashboardInstrument_Gauge::Draw(wxGCDC* dc) {

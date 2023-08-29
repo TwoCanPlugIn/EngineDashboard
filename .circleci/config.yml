@@ -23,9 +23,8 @@ workflows:
 #             <<: *std-filters
 #        - build-android-armhf:
 #             <<: *std-filters
-# Use appveyor for Windows builds
-#        -build-msvc-wx32-2022
-#             <<: *std-filters
+        -build-msvc-wx32-2022
+             <<: *std-filters
         - build-macos-wx32:
              <<: *std-filters
         - build-flatpak-arm64-2208:
