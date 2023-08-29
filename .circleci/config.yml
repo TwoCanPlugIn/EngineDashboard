@@ -23,7 +23,7 @@ workflows:
 #             <<: *std-filters
 #        - build-android-armhf:
 #             <<: *std-filters
-        - build-msvc-wx32-2022
+        - build-msvc-wx32-2022:
              <<: *std-filters
         - build-macos-wx32:
              <<: *std-filters
@@ -50,9 +50,9 @@ commands:
             install-python:
                 type: boolean
                 default: false
-            use-orb:
-                type: env_var_name
-                default: DEPLOY_USE_ORB
+            DEPLOY-USE-ORB:
+                type: boolean
+                default: true
         steps:
             - when:
                 condition: <<pipeline.parameters.run_workflow_deploy>>
@@ -63,11 +63,11 @@ commands:
                     - run: sudo apt install -y python3-pip
                     - run: python3.8 -m pip install cloudsmith-cli
                 - when:
-                    condition: <<parameters.use-orb>>
+                    condition: <<parameters.DEPLOY-USE-ORB>>
                     steps:
                     - cloudsmith/ensure-api-key
                     - cloudsmith/install-cli
-                - run: ci/cloudsmith-upload.sh
+                - run: bash ci/cloudsmith-upload.sh
 
 jobs:
     build-android-arm64:
@@ -109,17 +109,21 @@ jobs:
         - run: bash ci/circleci-build-macos.sh
         - deploy-code
     build-msvc-wx32-2022:
-        executor: win/server-2022
+        executor:
+            name: win/server-2022
+            shell: cmd.exe
         environment:
         - OCPN_TARGET: MSVC
         - MSVC_VERSION: 2022
         - WX_VER: 32
-        - DEPLOY_USE_ORB: true
         steps:
         - checkout
-        - run: ci/circleci-build-msvc
+        - run: 
+            privileged: False
+            shell: cmd.exe
+            command: ci\circleci-build-msvc.bat
         - deploy-code:
-            install-python: true
+            DEPLOY-USE-ORB: false
     build-flatpak-arm64-2208:
         machine:
             image: ubuntu-2004:202101-01
