@@ -23,7 +23,7 @@ workflows:
 #             <<: *std-filters
 #        - build-android-armhf:
 #             <<: *std-filters
-        - build-msvc-wx32-2022
+        - build-msvc-wx32-2022:
              <<: *std-filters
         - build-macos-wx32:
              <<: *std-filters
