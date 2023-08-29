@@ -330,7 +330,7 @@ wxSize DashboardInstrument_Block::GetSize(int orient, wxSize hint) {
 	dc.GetTextExtent(_T("000000000000000"), &w, &m_DataHeight, 0, 0, g_pFontData);
 
 	if (orient == wxHORIZONTAL) {
-		return wxSize(wxMax(w, DefaultWidth), wxMax(hint.y, m_TitleHeight + m_DataHeight));
+		return wxSize(wxMax(w, DefaultWidth), m_TitleHeight + m_DataHeight);
 	}
 	else {
 		return wxSize(wxMax(w, hint.x), m_TitleHeight + m_DataHeight);
