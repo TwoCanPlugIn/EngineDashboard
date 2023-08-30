@@ -1,3 +1,7 @@
+:: As we are using git submodules
+git submodule update --init opencpn-libs
+
+
 ::
 :: Build the msvc artifacts
 ::

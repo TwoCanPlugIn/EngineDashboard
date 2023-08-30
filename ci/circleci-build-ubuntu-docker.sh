@@ -6,6 +6,10 @@
 
 # bailout on errors and echo commands.
 set -x
+
+# As we are using git submodules
+git submodule update --init opencpn-libs
+
 sudo apt-get -y --allow-unauthenticated update
 
 DOCKER_SOCK="unix:///var/run/docker.sock"

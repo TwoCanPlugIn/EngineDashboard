@@ -6,6 +6,9 @@
 
 set -xe
 
+# As we are using git submodules
+git submodule update --init opencpn-libs
+
 set -o pipefail
 # Check if the cache is with us. If not, re-install brew.
 brew list --versions libexif || brew update-reset
