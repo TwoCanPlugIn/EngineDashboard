@@ -34,8 +34,8 @@ dir
 ::wget https://sourceforge.net/projects/opencpnplugins/files/opencpn.lib
 ::wget https://download.opencpn.org/s/oibxM3kzfzKcSc3/download/OpenCPN_buildwin-4.99a.7z
 ::7z x -y OpenCPN_buildwin-4.99a.7z -o..\buildwin
-::wget https://download.opencpn.org/s/54HsBDLNzRZLL6i/download/nsis-3.04-setup.exe
-::nsis-3.04-setup.exe /S
+wget https://download.opencpn.org/s/54HsBDLNzRZLL6i/download/nsis-3.04-setup.exe
+nsis-3.04-setup.exe /S
 
 echo Create build environment
 
