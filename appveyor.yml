@@ -18,7 +18,6 @@ environment:
   wxWidgets_ROOT_DIR: '%WXWIN%'
   wxWidgets_LIB_DIR: '%WXWIN%\lib\vc_dll'
   PATH: '%PATH%;%WXWIN%;%wxWidgets_LIB_DIR%;C:\Program Files\Poedit\Gettexttools\bin'
-  cmake_parms: -A Win32
   
 init:
   - appveyor version
@@ -39,12 +38,8 @@ install:
 
 before_build:
   - cd c:\project\ocpn_project
- # - ps: Start-FileDownload https://downloads.sourceforge.net/project/opencpnplugins/opencpn_packaging_data/PVW32Con.exe
   - rm -rf build && mkdir build && cd build
- # - ps: Start-FileDownload https://sourceforge.net/projects/opencpnplugins/files/opencpn.lib
- # - ps: Start-FileDownload https://download.opencpn.org/s/oibxM3kzfzKcSc3/download -FileName OpenCPN_buildwin-4.99a.7z
- # - cmd: 7z x -y OpenCPN_buildwin-4.99a.7z -oc:\project\ocpn_project\buildwin
-  - cmake %cmake_parms% ..
+  - cmake -A Win32 ..
 
 build_script:
   - cmake --build . --target package --config Release
