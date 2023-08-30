@@ -221,6 +221,10 @@ jobs:
         - BUILD_ENV=ubuntu
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init --recursive
+            name: Init git submodule
         - run: >
             echo "deb-src http://us.archive.ubuntu.com/ubuntu/ jammy main" | sudo tee -a /etc/apt/sources.list
         - run: >
