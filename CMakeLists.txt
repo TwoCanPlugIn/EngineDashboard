@@ -126,9 +126,13 @@ else(APPLE)
 endif(APPLE)
 
 ## Need api-16 for ocpn_plugin.h
-INCLUDE_DIRECTORIES(BEFORE ${PROJECT_SOURCE_DIR}/libs/ocpn-api)
+##INCLUDE_DIRECTORIES(BEFORE ${PROJECT_SOURCE_DIR}/libs/ocpn-api)
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/nmea0183/inc ${CMAKE_SOURCE_DIR}/inc ${CMAKE_SOURCE_DIR}/wxjson/include)
+# Using git submodules for external libraries
+ADD_SUBDIRECTORY("${CMAKE_SOURCE_DIR}/opencpn-libs/api-18")
+ADD_SUBDIRECTORY("${CMAKE_SOURCE_DIR}/opencpn-libs/wxJSON")
+
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/nmea0183/inc ${CMAKE_SOURCE_DIR}/inc)
 
 SET(SRC_DASHBOARD
     src/dashboard_pi.cpp
@@ -167,19 +171,11 @@ SET(INC_NMEA0183
     nmea0183/inc/rsa.hpp
     nmea0183/inc/xdr.hpp)
 
-SET(SRC_JSON
-    wxjson/src/jsonval.cpp
-    wxjson/src/jsonreader.cpp
-    wxjson/src/jsonwriter.cpp
-)
 
-SET(INC_JSON
-    wxjson/include/json_defs.h
-    wxjson/include/jsonreader.h
-    wxjson/include/jsonval.h
-    wxjson/include/jsonwriter.h)
+TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${SRC_NMEA0183})
 
-TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${SRC_NMEA0183} ${SRC_JSON})
+TARGET_LINK_LIBRARIES(${PACKAGE_NAME} ocpn::api ocpn::wxjson)
+
 
 ##
 ## ----- do not change next section - needed to configure build process ----- ##
