@@ -496,14 +496,12 @@ bool dashboard_pi::DeInit(void) {
 
 // Called for each timer tick, ensures valid data and refreshes each display
 void dashboard_pi::Notify()
-{
+{	// BUG BUG could possibly use OCPN_DBP_STC as the constraints in the for loop
     if (wxDateTime::Now() > (engineWatchDog + wxTimeSpan::Seconds(5))) {
 		// Zero the engine instruments
 		// We go from zero to ID_DBP_FUEL_TANK_01 + 3, because there are three additional values
 		// in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
 		// do not have their own gauge, but populate the engine rpm gauges
-		// The tank levels start from OCPN_DBP_STC_TANK_LEVEL_FUEL_01 which is 
-		// defined as equal to 1 << 15,
 		for (int i = 0; i < ID_DBP_FUEL_TANK_01 + 3; i++) {
 			SendSentenceToAllInstruments((DASH_CAP)i,0.0f, "");
 		}
@@ -511,7 +509,7 @@ void dashboard_pi::Notify()
 
 	if (wxDateTime::Now() > (tankLevelWatchDog + wxTimeSpan::Seconds(5))) {
 		// Zero the tank instruments
-		// We go from OCPN_DBP_STC_TANK_LEVEL_FUEL_01 to IDP_LAST_ENTRY + 3, 
+		// We go from IDP_TANK_LEVEL_FUEL_01 to IDP_LAST_ENTRY + 3, 
 		// because there are three additional values
 		// in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
 		// do not have their own gauge, but populate the engine rpm gauges
@@ -1751,7 +1749,7 @@ void dashboard_pi::HandleN2K_127508(ObservedEvt ev) {
 	std::vector<uint8_t>payload = GetN2000Payload(id_127508, ev);
 
 	byte batteryInstance;
-	batteryInstance = payload[index + 0] & 0xF;
+	batteryInstance = payload[index + 0];
 
 	unsigned short batteryVoltage; // 0.01 volts
 	batteryVoltage = payload[index + 1] | (payload[index + 2] << 8);

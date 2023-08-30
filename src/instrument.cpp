@@ -379,7 +379,7 @@ void DashboardInstrument_Block::Draw(wxGCDC* dc) {
 
 void DashboardInstrument_Block::SetData(DASH_CAP st, double data, wxString unit) {
 	if (m_cap_flag.test(st)) {
-		if (!std::isnan(data) && (data <= 100)) {
+		if (!std::isnan(data) && (data > 0) && (data <= 100)) {
 			if (unit == _T("Level")) {
 				m_Value = (int)data; // class member used to determine foreground colour
 				m_data.Clear();
