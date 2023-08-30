@@ -496,7 +496,8 @@ bool dashboard_pi::DeInit(void) {
 
 // Called for each timer tick, ensures valid data and refreshes each display
 void dashboard_pi::Notify()
-{	// BUG BUG could possibly use OCPN_DBP_STC as the constraints in the for loop
+{
+	// BUG BUG Consider using OCPN_DBP_STC as the for loop constraints
     if (wxDateTime::Now() > (engineWatchDog + wxTimeSpan::Seconds(5))) {
 		// Zero the engine instruments
 		// We go from zero to ID_DBP_FUEL_TANK_01 + 3, because there are three additional values
@@ -509,7 +510,7 @@ void dashboard_pi::Notify()
 
 	if (wxDateTime::Now() > (tankLevelWatchDog + wxTimeSpan::Seconds(5))) {
 		// Zero the tank instruments
-		// We go from IDP_TANK_LEVEL_FUEL_01 to IDP_LAST_ENTRY + 3, 
+		// We go from ID_DBP_FUEL_TANK_01 + 3 to IDP_LAST_ENTRY + 3, 
 		// because there are three additional values
 		// in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
 		// do not have their own gauge, but populate the engine rpm gauges
