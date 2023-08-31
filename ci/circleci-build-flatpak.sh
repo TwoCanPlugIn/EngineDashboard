@@ -22,9 +22,6 @@ if [ "${CIRCLECI_LOCAL,,}" = "true" ]; then
     fi
 fi
 
-# As we are using git submodules
-git submodule update --init opencpn-libs
-
 sudo apt-get -q -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages update
 
 #PLUGIN=bsb4

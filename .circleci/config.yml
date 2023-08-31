@@ -79,6 +79,10 @@ jobs:
         - DEPLOY_USE_ORB: true
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: chmod a+x ci/*.sh
         - run: bash ci/circleci-build-android-arm64.sh
         - deploy-code:
@@ -91,6 +95,10 @@ jobs:
         - OCPN_TARGET:  android-armhf
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: chmod a+x ci/*.sh
         - run: bash ci/circleci-build-android-armhf.sh
         - deploy-code:
@@ -105,6 +113,10 @@ jobs:
         - WX_VER: 32
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: chmod a+x ci/*.sh
         - run: bash ci/circleci-build-macos.sh
         - deploy-code
@@ -118,6 +130,10 @@ jobs:
         - WX_VER: 32
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: 
             privileged: False
             shell: cmd.exe
@@ -136,6 +152,10 @@ jobs:
         - DEPLOY_USE_ORB: true
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: chmod a+x ci/*.sh
         - run:
             command: bash ci/circleci-build-flatpak.sh
@@ -151,6 +171,10 @@ jobs:
         - DEPLOY_USE_ORB: true
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: chmod a+x ci/*.sh
         - run:
             command: bash ci/circleci-build-flatpak.sh
@@ -169,6 +193,10 @@ jobs:
         - DEPLOY_USE_ORB: true
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: chmod a+x ./ci/*.sh
         - run:
             command: ci/circleci-build-ubuntu-docker.sh
@@ -188,6 +216,10 @@ jobs:
         - DEPLOY_USE_ORB: true
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: chmod a+x ./ci/*.sh
         - run:
             command: ci/circleci-build-ubuntu-docker.sh
@@ -205,6 +237,10 @@ jobs:
         - DOCKER_IMAGE=debian:bookworm
         steps:
         - checkout
+        - run:
+            command: |
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: chmod a+x ci/*.sh
         - run:
             command: ci/circleci-build-ubuntu-docker.sh

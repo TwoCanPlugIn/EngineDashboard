@@ -1,7 +1,3 @@
-:: As we are using git submodules
-git submodule update --init opencpn-libs
-
-
 ::
 :: Build the msvc artifacts
 ::
@@ -35,9 +31,6 @@ if exist build (rmdir /s /q build)
 mkdir build && cd build
 dir
 
-::wget https://sourceforge.net/projects/opencpnplugins/files/opencpn.lib
-::wget https://download.opencpn.org/s/oibxM3kzfzKcSc3/download/OpenCPN_buildwin-4.99a.7z
-::7z x -y OpenCPN_buildwin-4.99a.7z -o..\buildwin
 wget https://download.opencpn.org/s/54HsBDLNzRZLL6i/download/nsis-3.04-setup.exe
 nsis-3.04-setup.exe /S
 
@@ -65,5 +58,4 @@ dir
 
 echo Build for windows
 
-::cmake --build . --target tarball --config %CONFIGURATION%
 cmake --build . --target package --config %CONFIGURATION%

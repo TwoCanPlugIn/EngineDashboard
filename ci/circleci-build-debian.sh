@@ -14,9 +14,6 @@ if [ "${CIRCLECI_LOCAL,,}" = "true" ]; then
     fi
 fi
 
-# As we are using git submodules
-git submodule update --init opencpn-libs
-
 sudo apt-get -qq update
 sudo apt-get install devscripts equivs
 

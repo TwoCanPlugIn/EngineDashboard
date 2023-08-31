@@ -38,6 +38,7 @@ install:
 
 before_build:
   - cd c:\project\ocpn_project
+  - git submodule update --init opencpn-libs
   - rm -rf build && mkdir build && cd build
   - cmake -A Win32 ..
 
