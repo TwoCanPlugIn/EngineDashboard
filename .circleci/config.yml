@@ -223,8 +223,8 @@ jobs:
         - checkout
         - run:
             command: |
-              git submodule update --init --recursive
-            name: Init git submodule
+              git submodule update --init opencpn-libs
+            name: Initialize git submodule opencpn-libs
         - run: >
             echo "deb-src http://us.archive.ubuntu.com/ubuntu/ jammy main" | sudo tee -a /etc/apt/sources.list
         - run: >
