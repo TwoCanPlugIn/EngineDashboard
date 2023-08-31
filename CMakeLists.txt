@@ -131,8 +131,9 @@ endif(APPLE)
 # Using git submodules for external libraries
 ADD_SUBDIRECTORY("${CMAKE_SOURCE_DIR}/opencpn-libs/api-18")
 ADD_SUBDIRECTORY("${CMAKE_SOURCE_DIR}/opencpn-libs/wxJSON")
+ADD_SUBDIRECTORY("${CMAKE_SOURCE_DIR}/opencpn-libs/nmea0183")
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/nmea0183/inc ${CMAKE_SOURCE_DIR}/inc)
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/inc)
 
 SET(SRC_DASHBOARD
     src/dashboard_pi.cpp
@@ -151,30 +152,9 @@ SET(INC_DASHBOARD
     inc/icons.h)
 
 
-SET(SRC_NMEA0183
-    nmea0183/src/nmea0183.cpp 
-    nmea0183/src/response.cpp
-    nmea0183/src/sentence.cpp
-    nmea0183/src/rsa.cpp    
-    nmea0183/src/rpm.cpp
-    nmea0183/src/xdr.cpp
-    nmea0183/src/talkerid.cpp
-    nmea0183/src/hexvalue.cpp
-    nmea0183/src/expid.cpp
-    )
+TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD})
 
-SET(INC_NMEA0183
-    nmea0183/inc/nmea0183.hpp
-    nmea0183/inc/response.hpp
-    nmea0183/inc/sentence.hpp
-    nmea0183/inc/rpm.hpp
-    nmea0183/inc/rsa.hpp
-    nmea0183/inc/xdr.hpp)
-
-
-TARGET_SOURCES(${PACKAGE_NAME} PUBLIC ${SRC_DASHBOARD} ${SRC_NMEA0183})
-
-TARGET_LINK_LIBRARIES(${PACKAGE_NAME} ocpn::api ocpn::wxjson)
+TARGET_LINK_LIBRARIES(${PACKAGE_NAME} ocpn::api ocpn::wxjson ocpn::nmea0183)
 
 
 ##
