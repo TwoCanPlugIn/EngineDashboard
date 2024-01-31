@@ -18,7 +18,8 @@
 // 1.4.2 20-05-2022 - Add Yacht Devices engine hours transducer name (EngineHours#x), 
 //                  - New gauges for Engine Exhaust (EngineExhaust#n)
 // 1.5   30-10-2022 - Add support for OpenCPN v5.8 native NMEA 2000 network connections
-// 1.6   39-08-2023 - Fix CircleCI build platforms, Add NMEA 183 Listeners, Add tank guage controls
+// 1.6   30-08-2023 - Fix CircleCI build platforms, Add NMEA 183 Listeners, Add tank guage controls
+// 1.7   01/02/2024 - Fix for multicanvas docking 
 //
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -1439,8 +1440,6 @@ void dashboard_pi::HandleRSA(ObservedEvt ev) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, -m_NMEA0183.Rsa.Port, _T("\u00B0"));
 		}
 	}
-
-	
 }
 
 // BUG BUG Core OpenCPN has yet to implement the GetSignalKPayload function
@@ -2736,7 +2735,7 @@ unsigned int AddInstrumentDlg::GetInstrumentAdded() {
 // wxWS_EX_VALIDATE_RECURSIVELY required to push events to parents
 DashboardWindow::DashboardWindow(wxWindow *pparent, wxWindowID id, wxAuiManager *auimgr,
         dashboard_pi* plugin, int orient, DashboardWindowContainer* mycont) :
-        wxWindow(pparent, id, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE, _T("Dashboard")) {
+        wxWindow(pparent, id, wxDefaultPosition, wxDefaultSize, wxBORDER_DEFAULT) {
     m_pauimgr = auimgr;
     m_plugin = plugin;
     m_Container = mycont;
