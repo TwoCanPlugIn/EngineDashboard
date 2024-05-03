@@ -779,16 +779,16 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 
 		// Units are in seconds
 		if ((update_path == _T("propulsion.port.runTime")) && (!dualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, GetJsonDouble(value) / 3600, "Hrs");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, GetJsonDouble(value) / 3600.0, "Hrs");
 		}
 
 		if ((update_path == _T("propulsion.port.runTime")) && (dualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, GetJsonDouble(value) / 3600, "Hrs");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, GetJsonDouble(value) / 3600.0, "Hrs");
 		}
 
 		if (update_path == _T("propulsion.starboard.runTime")) {
 			// dualEngine = TRUE;
-			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, GetJsonDouble(value) / 3600, "Hrs");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, GetJsonDouble(value) / 3600.0, "Hrs");
 		}
 
 		if (update_path == _T("electrical.batteries.0.voltage")) {
@@ -1618,7 +1618,7 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 				}
 
 				if (IsDataValid(totalEngineHours)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
 				}
 			}
 			else {
@@ -1644,7 +1644,7 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 				}
 
 				if (IsDataValid(totalEngineHours)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
 				}
 			}
 			break;
@@ -1671,7 +1671,7 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 			}
 
 			if (IsDataValid(totalEngineHours)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, totalEngineHours / 3600, "Hrs");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
 			}
 
 			break;
