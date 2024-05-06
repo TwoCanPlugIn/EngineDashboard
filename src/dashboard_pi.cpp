@@ -776,19 +776,18 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 		}
-
 		// Units are in seconds
 		if ((update_path == _T("propulsion.port.runTime")) && (!dualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, GetJsonDouble(value) / 3600.0, "Hrs");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
 		}
 
 		if ((update_path == _T("propulsion.port.runTime")) && (dualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, GetJsonDouble(value) / 3600.0, "Hrs");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
 		}
 
 		if (update_path == _T("propulsion.starboard.runTime")) {
 			// dualEngine = TRUE;
-			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, GetJsonDouble(value) / 3600.0, "Hrs");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
 		}
 
 		if (update_path == _T("electrical.batteries.0.voltage")) {
