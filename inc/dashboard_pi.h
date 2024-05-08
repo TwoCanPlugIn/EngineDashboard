@@ -242,7 +242,10 @@ private:
 	// Temperature
 	void HandleN2K_130312(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_130312;
-	
+	// Rudder Angle
+	void HandleN2K_127245(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_127245;
+
 	// NMEA 2000 Data Validation
 	template<typename T>
 	static bool IsDataValid(T value);

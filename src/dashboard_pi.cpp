@@ -415,6 +415,14 @@ int dashboard_pi::Init(void) {
 		HandleN2K_127508(ev);
 	});
 
+	// PGN 127245 Rudder Angle
+	wxDEFINE_EVENT(EVT_N2K_127245, ObservedEvt);
+	NMEA2000Id id_127245 = NMEA2000Id(127245);
+	listener_127245 = std::move(GetListener(id_127245, EVT_N2K_127245, this));
+	Bind(EVT_N2K_127245, [&](ObservedEvt ev) {
+		HandleN2K_127245(ev);
+	});
+
 	// Initialize NMEA 183 Listeners
 	// $--XDR Transducers
 	wxDEFINE_EVENT(EVT_183_XDR, ObservedEvt);
@@ -1833,6 +1841,29 @@ void dashboard_pi::HandleN2K_130312(ObservedEvt ev) {
 				}
 				break;
 		}
+	}
+}
+
+// PGN 127245 Rudder Angle 
+void dashboard_pi::HandleN2K_127245(ObservedEvt ev) {
+	NMEA2000Id id_127245(127245);
+	std::vector<uint8_t>payload = GetN2000Payload(id_127245, ev);
+
+	byte instance;
+	instance = payload[index + 0];
+
+	byte directionOrder;
+	directionOrder = payload[index + 1] & 0x03;
+
+	short angleOrder; // 0.0001 radians
+	angleOrder = payload[index + 2] | (payload[index + 3] << 8);
+
+	short position; // 0.0001 radians
+	position = payload[index + 4] | (payload[index + 5] << 8);
+
+	if (IsDataValid(position)) {
+		// Ignore rudder instance assume that it refers to the main rudder
+		SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, RADIANS_TO_DEGREES(rudderAngle * 0.0001), _T("\u00B0"));
 	}
 }
 
