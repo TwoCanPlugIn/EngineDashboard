@@ -9,14 +9,23 @@ https://github.com/twoCanPlugin/EngineDashboard[GitHub Repository]
 The Engine Dashboard Plugin displays engine parameters, fluid levels and
 battery status in OpenCPN. It accepts NMEA 0183 RPM (Revolutions), RSA
 (Rudder Sensor Angle) and XDR (Transducer Measurement) sentences as its
-input. For sailors with NMEA2000® engine and tank sensors, any release
-of the TwoCan plugin later then version 1.6 can convert the appropriate
-messages from NMEA2000® networks to their NMEA 0183 equivalents which
-can then be displayed by the Engine Dashboard.
+input. 
+
+For sailors with NMEA2000® engine and tank sensors, there are two options:
+
+1. Any release of the TwoCan plugin later then version 1.6 can convert the appropriate
+messages from NMEA2000® networks to their NMEA 0183 equivalents which can then be 
+displayed by the Engine Dashboard.
+
+2. The current version of OpenCPN (5.8) which has built-in support for NMEA2000® is 
+also supported.
+
+In addition, the dashboard also supports SignalK Server and consumes the propulsion, 
+electrical and tanks namespaces. (eg. tanks.freshWater.0.currentLevel)
 
 The Engine Dashboard displays the following data:
 
-Engine RPM, Oil Pressure, Coolant Temperature, Engine Hours & Alternator
+Engine RPM, Oil Pressure, Coolant Temperature, Exhaust Temperature, Engine Hours & Alternator
 Voltage for either single or dual engine vessels.
 
 Fluid levels for Fuel, Water, Oil, Live Well, Grey and Black Waste.
@@ -64,12 +73,14 @@ Auxilliary)
 
 [cols=",,,,",options="header",]
 |===
-|Measurement |Transducer |Type |Measurement Unit |Transducer Name^1, 5^
+|Measurement |Transducer |Type |Measurement Unit |Transducer Name^1^^,^^5^
 |Engine RPM |T |R |RPM |ENGINE#0, ENGINE#1
 
 |Oil pressure |P |P |Pascals |ENGINEOIL#0, ENGINEOIL#1
 
 |Water Temperature |C |C |Celsius |ENGINE#0, ENGINE#1
+
+|Exhaust Temperature |C |C |Celsius |ENGINEEXHAUST#0, ENGINEEXHAUST#1
 
 |Alternator Voltage |U |V |Volts |ALTERNATOR#0, ALTERNATOR#1
 
@@ -91,7 +102,7 @@ LIVEWELLWATER#0, WASTEWATER#0, BLACKWATER#0
 
 [cols=",,,,",options="header",]
 |===
-|Measurement |Transducer |Type |Measurement Unit |Transducer Name^1, 5^
+|Measurement |Transducer |Type |Measurement Unit |Transducer Name^1^^,^^5^
 |Engine RPM |T |R |RPM |ENGINE0, ENGINE1
 
 |Oil pressure |P |P |Pascals |ENGOILP0, ENGOILP1
@@ -135,6 +146,28 @@ current measured in Amps.
 the main engine. For dual engine vessels instance 0 (eg. ENGINE#0)
 refers to the port engine and instance 1 (eg. ENGINE#1) refers to the
 starboard engine.
+
+*NMEA 2000*
+
+The following Parameter Groups Numbers (PGN's) are supported when using OpenCPN 5.8 built-in NMEA2000® support 
+
+[cols=",",options="header",]
+|===
+|PGN | Measurement ^1^
+|127488 | Engine RPM 
+|127489 | Oil Pressure 
+| | Engine Temperature 
+| | Alternator
+| | Engine Hours 
+|127505 | Fluid Levels
+|127508| Battery Voltage
+| | Battery Current
+|130312 | Exhaust Temperature
+|===
+
+1. In single engine mode, instance 0 refers to the main engine. In dual engine mode instance 0 refers to the port engine and instance 1 the starboard engine
+
+*Installation*
 
 The engine dashboard is installed from the OpenCPN Preferences dialog
 under the Plugins tab.

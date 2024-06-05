@@ -140,7 +140,6 @@ void DashboardInstrument_Dial::SetData(DASH_CAP st, double data, wxString unit) 
             m_ExtraValue = data;
             m_ExtraValueUnit = unit;
       }
-      wxLogMessage("Debug: %d, %d", st, data);
 }
 
 void DashboardInstrument_Dial::Draw(wxGCDC* bdc) {
@@ -348,11 +347,15 @@ void DashboardInstrument_Dial::DrawMarkers(wxGCDC* dc) {
     for (double angle = m_AngleStart - ANGLE_OFFSET; angle <= diff_angle; angle += abm) {
         if (m_MarkerOption == DIAL_MARKER_REDGREEN) {
             int a = int(angle + ANGLE_OFFSET) % 360;
-            if (a > 180) GetGlobalColor(_T("DASHR"), &cl);
-            else if ((a > 0) && (a < 180)) GetGlobalColor(_T("DASHG"), &cl);
-            else
+            if (a > 180) {
+                GetGlobalColor(_T("DASHR"), &cl);
+            }
+            else if ((a > 0) && (a < 180)) {
+                GetGlobalColor(_T("DASHG"), &cl);
+            }
+            else {
                 GetGlobalColor(_T("DASHF"), &cl);
-
+            }
             pen.SetColour(cl);
             dc->SetPen(pen);
         }
@@ -639,6 +642,7 @@ void DashboardInstrument_Dial::DrawForeground(wxGCDC* dc) {
       /* this is fix for a +/-180° round instrument, when m_MainValue is supplied as <0..180><L | R>
        * for example TWA & AWA */
       double data;
+
       if (m_MainValueUnit == _T("\u00B0L"))
           data=360-m_MainValue;
       else

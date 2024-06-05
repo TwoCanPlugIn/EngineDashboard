@@ -90,10 +90,10 @@ class DashboardInstrumentContainer;
 
 // Kelvin to celsius
 #define CONST_KELVIN 273.15
-#define CONVERT_KELVIN(x) (x - CONST_KELVIN )
+#define CONVERT_KELVIN(x) ((x) - CONST_KELVIN )
 
 // RADIANS/DEGREES
-#define RADIANS_TO_DEGREES(x) (x * 180 / M_PI)
+#define RADIANS_TO_DEGREES(x) ((x) * 180 / M_PI)
 
 class DashboardWindowContainer {
 public:

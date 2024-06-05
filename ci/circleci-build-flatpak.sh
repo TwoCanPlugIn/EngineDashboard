@@ -45,19 +45,21 @@ if test -f "$EXTRA_LIBS"; then
     done < $EXTRA_LIBS
 fi
 
+git submodule update --init opencpn-libs
+
 if [ -n "$CI" ]; then
     sudo apt update
 
     # Avoid using outdated TLS certificates, see #210.
     sudo apt install --reinstall  ca-certificates
 
-	# Use updated flatpak workaround
+    # Use updated flatpak workaround
     sudo add-apt-repository -y ppa:alexlarsson/flatpak
     sudo apt update
 
-   # Install flatpak and flatpak-builder - obsoleted by flathub
+    # Install flatpak and flatpak-builder - obsoleted by flathub
     sudo apt install flatpak flatpak-builder
-	
+
 fi
 
 flatpak remote-add --user --if-not-exists \

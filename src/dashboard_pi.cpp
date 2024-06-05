@@ -20,7 +20,9 @@
 // 1.5   30-10-2022 - Add support for OpenCPN v5.8 native NMEA 2000 network connections
 // 1.6   30-08-2023 - Fix CircleCI build platforms, Add NMEA 183 Listeners, Add tank guage controls
 // 1.7   01/02/2024 - Fix for multicanvas docking 
-//
+// 1.8   08/05/2024 - Fix for engine hours (decimal units), Add PGN 127245 Rudder Angle
+// 1.81  05/06/2024 - Fix for incorrect display of rudder angle
+// 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
 /*
@@ -1439,12 +1441,14 @@ void dashboard_pi::HandleRSA(ObservedEvt ev) {
 	wxString sentence(GetN0183Payload(id_183_rsa, ev));
 	m_NMEA0183 << sentence;
 
+	// Plugin does not differentiate dual rudders (port/starboard)
+
 	if (m_NMEA0183.Parse()) {
 		if (m_NMEA0183.Rsa.IsStarboardDataValid == NTrue) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, m_NMEA0183.Rsa.Starboard, _T("\u00B0"));
 		}
 		else if (m_NMEA0183.Rsa.IsPortDataValid == NTrue) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, -m_NMEA0183.Rsa.Port, _T("\u00B0"));
+			SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, m_NMEA0183.Rsa.Port, _T("\u00B0"));
 		}
 	}
 }
@@ -1862,7 +1866,7 @@ void dashboard_pi::HandleN2K_127245(ObservedEvt ev) {
 
 	if (IsDataValid(position)) {
 		// Ignore rudder instance assume that it refers to the main rudder
-		SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, RADIANS_TO_DEGREES(rudderAngle * 0.0001), _T("\u00B0"));
+		SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, RADIANS_TO_DEGREES((float)position * 1e-4), _T("\u00B0"));
 	}
 }
 
