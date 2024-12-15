@@ -22,6 +22,7 @@
 // 1.7   01/02/2024 - Fix for multicanvas docking 
 // 1.8   08/05/2024 - Fix for engine hours (decimal units), Add PGN 127245 Rudder Angle
 // 1.81  05/06/2024 - Fix for incorrect display of rudder angle
+// 1.9	 01/12/2024 - Add icon display in tachometer for engine faults, added corresponding SignalK notifications
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -355,7 +356,7 @@ int dashboard_pi::Init(void) {
     LoadConfig();
 
     // Scaleable Vector Graphics (SVG) icons are stored in the following path.
-	wxString iconFolder = GetPluginDataDir(PLUGIN_PACKAGE_NAME) + wxFileName::GetPathSeparator() + _T("data") + wxFileName::GetPathSeparator();
+	iconFolder = GetPluginDataDir(PLUGIN_PACKAGE_NAME) + wxFileName::GetPathSeparator() + _T("data") + wxFileName::GetPathSeparator();
     
     // Load my own plugin icons (refer to the data directory in the repository)
 	wxString normalIcon = iconFolder + _T("engine-dashboard-colour.svg");
@@ -685,7 +686,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			// dualEngine = TRUE;
 			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
 		}
-
+		
 		// Units in volts
 		if ((update_path == _T("propulsion.port.alternatorVoltage")) && (!dualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
@@ -702,7 +703,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 
 		if (g_iDashPressureUnit == PRESSURE_BAR) {
 			// Units are in Pascals. 100000 Pascals = 1 Bar
-			if ((update_path == _T("propulsion.port.oilPressure")) & (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) && (!dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
 			}
 
@@ -717,7 +718,7 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 
 		else if (g_iDashPressureUnit == PRESSURE_PSI) {
-			if ((update_path == _T("propulsion.port.oilPressure")) & (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) && (!dualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
 			}
 
@@ -820,6 +821,340 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, RADIANS_TO_DEGREES(GetJsonDouble(value)), _T("\u00B0"));
 		}
 
+		// Engine Warning state = "alarm" or "normal"
+		if (update_path.StartsWith("notifications.propulsion", NULL)) {
+			// Status One Alarm conditions
+			// Main Engine
+			// Bit 0
+			if ((update_path == "notifications.propulsion.port.checkEngine") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 1, wxEmptyString);
+				}
+			}
+			// Bit 1
+			if ((update_path == "notifications.propulsion.port.overTemperature") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 2, wxEmptyString);
+				}
+			}
+			// Bit 2
+			if ((update_path == "notifications.propulsion.port.lowOilPressure") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 4, wxEmptyString);
+				}
+			}
+			// Bit 3
+			if ((update_path == "notifications.propulsion.port.lowOilLevel") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 8, wxEmptyString);
+				}
+			}
+			// Bit 4
+			if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 16, wxEmptyString);
+				}
+			}
+			// Bit 5
+			if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 32, wxEmptyString);
+				}
+			}
+			// Bit 6
+			if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 64, wxEmptyString);
+				}
+			}
+			// Bit 7
+			if ((update_path == "notifications.propulsion.port.waterFlow") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 128, wxEmptyString);
+				}
+			}
+			// Bit 8
+			if ((update_path == "notifications.propulsion.port.waterInFuel") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 256, wxEmptyString);
+				}
+			}
+			// Bit 9
+			if ((update_path == "notifications.propulsion.port.chargeIndicator") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 512, wxEmptyString);
+				}
+			}
+			// Bit 10
+			if ((update_path == "notifications.propulsion.port.preheatIndicator") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 1024, wxEmptyString);
+				}
+			}
+			// Bit 11
+			if ((update_path == "notifications.propulsion.port.highBoostPressure") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 2048, wxEmptyString);
+				}
+			}
+			// Bit 12
+			if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 4096, wxEmptyString);
+				}
+			}
+			// Bit 13
+			if ((update_path == "notifications.propulsion.port.eGRSystem") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 8192, wxEmptyString);
+				}
+			}
+			// Bit 14
+			if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 16384, wxEmptyString);
+				}
+			}
+			//Bit 15
+			if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (!dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 32768, wxEmptyString);
+				}
+			}
+			// Port Engine
+			// Bit 0
+			if ((update_path == "notifications.propulsion.port.checkEngine") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 1, wxEmptyString);
+				}
+			}
+			// Bit 1
+			if ((update_path == "notifications.propulsion.port.overTemperature") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 2, wxEmptyString);
+				}
+			}
+			// Bit 2
+			if ((update_path == "notifications.propulsion.port.lowOilPressure") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 4, wxEmptyString);
+				}
+			}
+			// Bit 3
+			if ((update_path == "notifications.propulsion.port.lowOilLevel") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 8, wxEmptyString);
+				}
+			}
+			// Bit 4
+			if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 16, wxEmptyString);
+				}
+			}
+			// Bit 5
+			if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 32, wxEmptyString);
+				}
+			}
+			// Bit 6
+			if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 64, wxEmptyString);
+				}
+			}
+			// Bit 7
+			if ((update_path == "notifications.propulsion.port.waterFlow") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 128, wxEmptyString);
+				}
+			}
+			// Bit 8
+			if ((update_path == "notifications.propulsion.port.waterInFuel") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 256, wxEmptyString);
+				}
+			}
+			// Bit 9
+			if ((update_path == "notifications.propulsion.port.chargeIndicator") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 512, wxEmptyString);
+				}
+			}
+			// Bit 10
+			if ((update_path == "notifications.propulsion.port.preheatIndicator") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 1024, wxEmptyString);
+				}
+			}
+			// Bit 11
+			if ((update_path == "notifications.propulsion.port.highBoostPressure") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 2048, wxEmptyString);
+				}
+			}
+			// Bit 12
+			if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 4096, wxEmptyString);
+				}
+			}
+			// Bit 13
+			if ((update_path == "notifications.propulsion.port.eGRSystem") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 8192, wxEmptyString);
+				}
+			}
+			// Bit 14
+			if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 16384, wxEmptyString);
+				}
+			}
+			//Bit 15
+			if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (dualEngine)) {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 32768, wxEmptyString);
+				}
+			}
+
+			// Starboard Engine
+			// Bit 0
+			if (update_path == "notifications.propulsion.starboard.checkEngine") {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 1, wxEmptyString);
+				}
+			}
+			// Bit 1
+			if (update_path == "notifications.propulsion.starboard.overTemperature")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 2, wxEmptyString);
+				}
+			}
+			// Bit 2
+			if (update_path == "notifications.propulsion.starboard.lowOilPressure")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 4, wxEmptyString);
+				}
+			}
+			// Bit 3
+			if (update_path == "notifications.propulsion.starboard.lowOilLevel")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 8, wxEmptyString);
+				}
+			}
+			// Bit 4
+			if (update_path == "notifications.propulsion.starboard.lowFuelPressure")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 16, wxEmptyString);
+				}
+			}
+			// Bit 5
+			if (update_path == "notifications.propulsion.starboard.lowSystemVoltage")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 32, wxEmptyString);
+				}
+			}
+			// Bit 6
+			if (update_path == "notifications.propulsion.starboard.lowCoolantLevel")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 64, wxEmptyString);
+				}
+			}
+			// Bit 7
+			if (update_path == "notifications.propulsion.starboard.waterFlow")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 128, wxEmptyString);
+				}
+			}
+			// Bit 8
+			if (update_path == "notifications.propulsion.starboard.waterInFuel")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 256, wxEmptyString);
+				}
+			}
+			// Bit 9
+			if (update_path == "notifications.propulsion.starboard.chargeIndicator")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 512, wxEmptyString);
+				}
+			}
+			// Bit 10
+			if (update_path == "notifications.propulsion.starboard.preheatIndicator")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 1024, wxEmptyString);
+				}
+			}
+			// Bit 11
+			if (update_path == "notifications.propulsion.starboard.highBoostPressure")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 2048, wxEmptyString);
+				}
+			}
+			// Bit 12
+			if (update_path == "notifications.propulsion.starboard.revLimitExceeded")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 4096, wxEmptyString);
+				}
+			}
+			// Bit 13
+			if (update_path == "notifications.propulsion.starboard.eGRSystem")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 8192, wxEmptyString);
+				}
+			}
+			// Bit 14
+			if (update_path == "notifications.propulsion.starboard.throttlePositionSensor")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 16384, wxEmptyString);
+				}
+			}
+			//Bit 15
+			if (update_path == "notifications.propulsion.starboard.emergencyStopMode")  {
+				if (CheckAlarmState(value)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 32768, wxEmptyString);
+				}
+			}
+			/////////////////
+
+			// Status Two Error Codes
+			// Currently Don't have icons for these, nor do I handle these in native NMEA 2000
+			// Bit 0
+			if (update_path == "notifications.propulsion.port.warningLevel1") {
+
+			} 
+			// Bit 1
+			if (update_path == "notifications.propulsion.port.warningLevel2") {
+
+			} 
+			// Bit 2
+			if (update_path == "notifications.propulsion.port.powerReduction") {
+
+			} 
+			// Bit 3
+			if (update_path == "notifications.propulsion.port.maintenanceNeeded") {
+
+			} 
+			// Bit 4
+			if (update_path == "notifications.propulsion.port.commError") {
+
+			} 
+			// Bit 5
+			if (update_path == "notifications.propulsion.port.subOrSecondaryThrottle") {
+
+			} 
+			// Bit 6
+			if (update_path == "notifications.propulsion.port.neutralStartProtect") {
+
+			} 
+			// Bit 7
+			if (update_path == "notifications.propulsion.port.shuttingDown") {
+
+			}
+		}
+
+		// Fluid Levels
 		if (update_path.StartsWith("tanks", NULL)) {
 			tankLevelWatchDog = wxDateTime::Now();
 			wxString xdrunit = "Level";
@@ -859,6 +1194,19 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 		}
 	}
+}
+
+// SignalK Engine Notifications
+// "state": "normal | alarm"
+// "method: ["visual", "sound"]
+// "message": "Port Enngine Charge Indicator is normal"
+bool dashboard_pi::CheckAlarmState(wxJSONValue& value) {
+	if (value.HasMember("state")) {
+		if (value["state"].AsString() == "alarm") {
+			return true;
+		}
+	}
+	return false;
 }
 
 void dashboard_pi::HandleXDR(ObservedEvt ev) {
@@ -1454,9 +1802,10 @@ void dashboard_pi::HandleRSA(ObservedEvt ev) {
 }
 
 // BUG BUG Core OpenCPN has yet to implement the GetSignalKPayload function
+// BUG BUG Fixed in OCPN Plugin API 1.19, contemplate for the next update cycle
+// Refer to Racing Plugin for working code
 void dashboard_pi::HandleSignalK(ObservedEvt ev) {
 	NMEA0183Id id_signalk("self");
-
 }
 
 
@@ -1563,7 +1912,7 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 
 	unsigned short statusOne;
 	statusOne = payload[index + 20] | (payload[index + 21] << 8);
-	// BUG BUG One Day add warning lights to the gauge
+	// Refer to dial.cpp for which SVG images match fault conditions
 	// {"0": "Check Engine"},
 	// { "1": "Over Temperature" },
 	// { "2": "Low Oil Pressure" },
@@ -1631,6 +1980,11 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 				if (IsDataValid(totalEngineHours)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
 				}
+
+				if (statusOne !=0) {
+					wxLogMessage("XXXXXXXX Engine Status: %d", statusOne);
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
+				}
 			}
 			else {
 				if (IsDataValid(oilPressure)) {
@@ -1656,6 +2010,10 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 
 				if (IsDataValid(totalEngineHours)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
+				}
+
+				if (statusOne != 0) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
 				}
 			}
 			break;
@@ -1683,6 +2041,10 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 
 			if (IsDataValid(totalEngineHours)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
+			}
+
+			if (statusOne != 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
 			}
 
 			break;
@@ -1876,7 +2238,7 @@ int dashboard_pi::GetToolbarToolCount(void) {
     return 1;
 }
 
-// Display the Dashboard Setings Dialog
+// Display the Dashboard Settings Dialog
 void dashboard_pi::ShowPreferencesDialog(wxWindow* parent) {
 	DashboardPreferencesDialog *dialog = new DashboardPreferencesDialog(parent, wxID_ANY, m_ArrayOfDashboardWindow);
 	if (dialog->ShowModal() == wxID_OK) {
@@ -2922,6 +3284,7 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(1000, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(200, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_MAIN_ENGINE_HOURS, _T("%.1f"), DIAL_POSITION_INSIDE);
+				((DashboardInstrument_Dial*)instrument)->SetOptionWarningValue(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE);
 				break;
 			case ID_DBP_PORT_ENGINE_RPM:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
@@ -2929,6 +3292,7 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(1000, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(200, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_PORT_ENGINE_HOURS, _T("%.1f"), DIAL_POSITION_INSIDE);
+				((DashboardInstrument_Dial*)instrument)->SetOptionWarningValue(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE);
 				break;
 			case ID_DBP_STBD_ENGINE_RPM:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
@@ -2936,6 +3300,7 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(1000, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(200, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_STBD_ENGINE_HOURS, _T("%.1f"), DIAL_POSITION_INSIDE);
+				((DashboardInstrument_Dial*)instrument)->SetOptionWarningValue(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE);
 				break;
 			case ID_DBP_MAIN_ENGINE_OIL:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,

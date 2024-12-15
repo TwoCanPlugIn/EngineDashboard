@@ -95,6 +95,8 @@ class DashboardInstrumentContainer;
 // RADIANS/DEGREES
 #define RADIANS_TO_DEGREES(x) ((x) * 180 / M_PI)
 
+wxString iconFolder;
+
 class DashboardWindowContainer {
 public:
 	DashboardWindowContainer(DashboardWindow *dashboard_window, wxString name, wxString caption, wxString orientation, wxArrayInt inst) {
@@ -203,6 +205,7 @@ private:
 	void HandleSKUpdate(wxJSONValue &update);
 	void UpdateSKItem(wxJSONValue &item);
 	double GetJsonDouble(wxJSONValue &value); // FFS
+	bool CheckAlarmState(wxJSONValue& value);
 
 	// Used to parse NMEA Sentences
 	NMEA0183 m_NMEA0183;

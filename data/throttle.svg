@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   id="Layer_1"
+   data-name="Layer 1"
+   viewBox="0 0 200 200"
+   version="1.1"
+   sodipodi:docname="throttle.svg"
+   width="200"
+   height="200"
+   inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs9" />
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="1.894057"
+     inkscape:cx="36.957706"
+     inkscape:cy="102.16166"
+     inkscape:window-width="1920"
+     inkscape:window-height="1001"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="Layer_1" />
+  <title
+     id="title2">transmission</title>
+  <path
+     d="m 118.98323,80.122516 a 37.058137,33.978752 0 0 1 -7.13394,-0.677137 43.08433,39.504192 0 0 1 -5.90803,-1.530331 L 91.939218,140.61795 H 111.43573 L 118.998,80.122516 Z m 0.17725,-66.616771 a 36.245782,33.2339 0 0 1 7.56228,65.72295 l -7.70998,61.578865 h 35.16757 v 6.96097 H 41.927719 v -6.96097 H 84.155385 L 99.028858,74.353306 A 36.718425,33.667268 0 0 1 93.534386,70.290482 36.245782,33.2339 0 0 1 119.16048,13.505745 Z M 21.042823,172.95803 H 175.00618 v 6.96098 H 21.042823 Z M 33.228141,156.8828 H 162.83562 v 6.94743 H 33.228141 Z M 139.41026,28.158997 a 28.653959,26.272929 0 1 0 8.38942,18.567106 28.550569,26.178129 0 0 0 -8.38942,-18.567106 z"
+     id="path4"
+     style="fill:#ff0000;stroke-width:1.41432" />
+  <metadata
+     id="metadata238">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>transmission</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

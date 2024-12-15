@@ -88,6 +88,8 @@ typedef enum {
 extern double rad2deg(double angle);
 extern double deg2rad(double angle);
 
+extern wxString iconFolder;
+
 //+------------------------------------------------------------------------------
 //|
 //| CLASS:
@@ -108,7 +110,7 @@ public:
 	void SetOptionLabel(double step, DialLabelOption option, wxArrayString labels = wxArrayString()); // { m_LabelStep = step; m_LabelOption = option; m_LabelArray = labels; }
 	void SetOptionMainValue(wxString format, DialPositionOption option);
 	void SetOptionExtraValue(DASH_CAP cap, wxString format, DialPositionOption option);
-
+	void SetOptionWarningValue(DASH_CAP cap);
 private:
 
 protected:
@@ -122,6 +124,7 @@ protected:
 	DialPositionOption m_MainValueOption;
 	double m_ExtraValue;
 	DASH_CAP m_ExtraValueCap;
+	DASH_CAP m_WarningValueCap;
 	wxString m_ExtraValueFormat;
 	wxString m_ExtraValueUnit;
 	DialPositionOption m_ExtraValueOption;
@@ -130,6 +133,9 @@ protected:
 	double m_MarkerStep, m_LabelStep;
 	DialLabelOption m_LabelOption;
 	wxArrayString m_LabelArray;
+	// Engine Warning images
+	wxString imageFilename;
+	wxBitmap imageBitmap;
 	
 	virtual void Draw(wxGCDC* dc);
 	virtual void DrawFrame(wxGCDC* dc);
@@ -138,6 +144,7 @@ protected:
 	virtual void DrawBackground(wxGCDC* dc);
 	virtual void DrawData(wxGCDC* dc, double value, wxString unit, wxString format, DialPositionOption position);
 	virtual void DrawForeground(wxGCDC* dc);
+	virtual void DrawWarning(wxGCDC* dc);
 };
 
 #endif // _DIAL_H_

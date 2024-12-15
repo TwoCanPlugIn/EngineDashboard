@@ -8,6 +8,7 @@
 // Version History
 // 1.0. 10-10-2019 - Oiginal Release
 // 1.1. 23-11-2019 - Fixed original dashboard resize bug (linux with cairo libs only), battery status, gauge background 
+// 1.9	 01/12/2024 - Add icon display in tachometer for engine faults
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
 
@@ -117,6 +118,11 @@ void DashboardInstrument_Dial::SetOptionExtraValue(DASH_CAP cap, wxString format
 	m_ExtraValueOption = option;
 }
 
+void DashboardInstrument_Dial::SetOptionWarningValue(DASH_CAP cap) {
+    m_WarningValueCap = cap;
+    m_cap_flag.set(cap);
+}
+
 wxSize DashboardInstrument_Dial::GetSize(int orient, wxSize hint) {
       wxClientDC dc(this);
       int w;
@@ -132,14 +138,71 @@ wxSize DashboardInstrument_Dial::GetSize(int orient, wxSize hint) {
 }
 
 void DashboardInstrument_Dial::SetData(DASH_CAP st, double data, wxString unit) {
-      if (st == m_MainValueCap) {
-            m_MainValue = data;
-            m_MainValueUnit = unit;
-      }
-      else if (st == m_ExtraValueCap) {
-            m_ExtraValue = data;
-            m_ExtraValueUnit = unit;
-      }
+    if (st == m_MainValueCap) {
+        m_MainValue = data;
+        m_MainValueUnit = unit;
+    }
+    else if (st == m_ExtraValueCap) {
+        m_ExtraValue = data;
+        m_ExtraValueUnit = unit;
+    }
+    else if (st == m_WarningValueCap) {
+        // These are bit values set from a 2 byte value
+        // BUG BUG Unsure if it is possible to have multiple alarms
+        switch ((int)data) {
+        case 1: // "Check Engine" 
+            imageFilename = "engine.svg";
+            break;
+        case 2: // "Over Temperature" 
+            imageFilename = "temperature.svg";
+            break;
+        case 4: // "Low Oil Pressure" 
+            imageFilename = "oil.svg";
+            break;
+        case 8: // "Low Oil Level"
+            imageFilename = "oil-level.svg";
+            break;
+        case 16: // "Low Fuel Pressure" 
+            imageFilename = "fuel.svg";
+            break;
+        case 32: // "Low System Voltage" 
+            imageFilename = "battery.svg";
+            break;
+        case 64: // "Low Coolant Level" 
+            imageFilename = "coolant.svg";
+            break;
+        case 128: // "Water Flow" 
+            imageFilename = "water.svg";
+            break;
+        case 256: // "Water In Fuel" 
+            imageFilename = "contamination.svg";
+            break;
+        case 512: // "Charge Indicator"
+            imageFilename = "alternator.svg";
+            break;
+        case 1024: // "Preheat Indicator" 
+            imageFilename = "preheat.svg";
+            break;
+        case 2048: // "High Boost Pressure" 
+            imageFilename = "turbo.svg";
+            break;
+        case 4096: // "Rev Limit Exceeded"
+            imageFilename = "rev-limit.svg";
+            break;
+        case 8192: // "EGR System" 
+            imageFilename = "exhaust.svg";
+            break;
+        case 16384: // "Throttle Position Sensor" 
+            imageFilename = "throttle.svg";
+            break;
+        case 32768: // "Emergency Stop" 
+            imageFilename = "stop.svg";
+            break;
+        default: // In case there are multiple alarms
+            imageFilename = "default.svg";
+            break;
+        }
+    }
 }
 
 void DashboardInstrument_Dial::Draw(wxGCDC* bdc) {
@@ -163,9 +226,23 @@ void DashboardInstrument_Dial::Draw(wxGCDC* bdc) {
     DrawFrame(bdc);
     DrawMarkers(bdc);
     DrawBackground(bdc);
+    DrawWarning(bdc);
     DrawData(bdc, m_MainValue, m_MainValueUnit, m_MainValueFormat, m_MainValueOption);
     DrawData(bdc, m_ExtraValue, m_ExtraValueUnit, m_ExtraValueFormat, m_ExtraValueOption);
     DrawForeground(bdc);
+}
+
+void DashboardInstrument_Dial::DrawWarning(wxGCDC* dc) {
+// If there's an engine alarm overlay the dial with an icon
+// Delete the image string so that if the alarm ceases, an icon is no longer displayed
+    if (!imageFilename.IsEmpty()) {
+        wxSize size = GetClientSize();
+        int dimension = size.x > 300 ? 96 : size.x > 200 ? 48 : 32;
+        imageFilename.Prepend(iconFolder);
+        wxBitmap imageBitmap = GetBitmapFromSVGFile(imageFilename, dimension, dimension);
+        dc->DrawBitmap(imageBitmap, (size.x/2) - (dimension/2), (size.y/3) - (dimension/3) );
+        imageFilename.Empty();
+    }
 }
 
 void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
@@ -402,6 +479,7 @@ void DashboardInstrument_Dial::DrawLabels(wxGCDC* dc)
       tdc.Clear();
       tdc.SetFont(*g_pFontSmall);
       tdc.SetTextForeground(cl);
+
 #endif
 
       dc->SetFont(*g_pFontSmall);
@@ -604,6 +682,7 @@ void DashboardInstrument_Dial::DrawData(wxGCDC* dc, double value,
             tdc.SelectObject(wxNullBitmap);
 
             dc->DrawBitmap(tbm, TextPoint.x, TextPoint.y, false);
+         
         }
         else
 #endif
