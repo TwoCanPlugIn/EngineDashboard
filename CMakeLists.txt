@@ -44,6 +44,9 @@ if (COMMAND cmake_policy)
   endif (POLICY CMP0077)
 endif (COMMAND cmake_policy)
 
+# set for vscode/vscodium
+set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
+
 # define plugin name, owner and versions
 set(VERBOSE_NAME "Engine_Dashboard")
 set(COMMON_NAME "Engine Dashboard")
@@ -60,7 +63,7 @@ set(VERSION_DATE "01/12/2024")
 set(OCPN_MIN_VERSION "ov50")
 set(OCPN_API_VERSION_MAJOR "1")
 set(OCPN_API_VERSION_MINOR "18")
-set(TP_COMMENT "Release for O5 using CI")
+set(TP_COMMENT "  * Release using CI")
 
 set(PARENT "opencpn")
 
