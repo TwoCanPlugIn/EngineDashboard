@@ -144,7 +144,7 @@ void DashboardInstrument::OnPaint(wxPaintEvent& WXUNUSED(event)) {
             wxPen pen;
             pen.SetStyle(wxPENSTYLE_SOLID);
             //GetGlobalColor(_T("DASHL"), &cl);
-            cl = *wxGREEN;
+            cl = *wxBLACK;
             pen.SetColour(cl);
             dc.SetPen(pen);
             dc.SetBrush(cl);
@@ -152,7 +152,7 @@ void DashboardInstrument::OnPaint(wxPaintEvent& WXUNUSED(event)) {
 
             dc.SetFont(*g_pFontTitle);
            // GetGlobalColor(_T("DASHF"), &cl);
-            cl = *wxBLUE;
+            cl = *wxWHITE;
             dc.SetTextForeground(cl);
             dc.DrawText(m_title, 5, 0);
         }
@@ -167,7 +167,7 @@ void DashboardInstrument::OnPaint(wxPaintEvent& WXUNUSED(event)) {
 
             wxPen pen;
             pen.SetStyle(wxPENSTYLE_SOLID);
-           // GetGlobalColor(_T("DASHL"), &cl);
+            //GetGlobalColor(_T("DASHL"), &cl);
             cl = *wxBLACK;
             pen.SetColour(cl);
             pdc.SetPen(pen);
