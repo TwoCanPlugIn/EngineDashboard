@@ -23,6 +23,7 @@
 // 1.8   08/05/2024 - Fix for engine hours (decimal units), Add PGN 127245 Rudder Angle
 // 1.81  05/06/2024 - Fix for incorrect display of rudder angle
 // 1.9	 01/12/2024 - Add icon display in tachometer for engine faults, added corresponding SignalK notifications
+// 1.91  13/05/2025 - Experimental - override nightmode, Add fuel flow gauge
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -124,7 +125,8 @@ enum {
 	ID_DBP_START_BATTERY_AMPS, ID_DBP_HOUSE_BATTERY_VOLTS, ID_DBP_HOUSE_BATTERY_AMPS, 
 	ID_DBP_FUEL_TANK_02, ID_DBP_WATER_TANK_02, ID_DBP_WATER_TANK_03,
 	ID_DBP_FUEL_TANK_GAUGE_01, ID_DBP_FUEL_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_01,
-	ID_DBP_WATER_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_03,
+	ID_DBP_WATER_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_03,ID_DBP_MAIN_ENGINE_FUEL_RATE,
+	ID_DBP_PORT_ENGINE_FUEL_RATE, ID_DBP_STBD_ENGINE_FUEL_RATE,
 	ID_DBP_LAST_ENTRY //this has a reference in one of the routines; defining a "LAST_ENTRY" and setting the reference to it, is one codeline less to change (and find) when adding new instruments :-)
 };
 
@@ -194,8 +196,14 @@ wxString GetInstrumentCaption(unsigned int id) {
 			return _("Start Battery Current");
 		case ID_DBP_HOUSE_BATTERY_AMPS:
 			return _("House Battery Current");
+		case ID_DBP_MAIN_ENGINE_FUEL_RATE:
+			return _("Main Fuel Rate");
+		case ID_DBP_PORT_ENGINE_FUEL_RATE:
+			return _("Port Fuel Rate");
+		case ID_DBP_STBD_ENGINE_FUEL_RATE:
+			return _("Stbd Fuel Rate");
 		default:
-			return _("");
+			return wxEmptyString;
     }
 }
 
@@ -237,6 +245,9 @@ void GetListItemForInstrument(wxListItem &item, unsigned int id) {
 		case ID_DBP_START_BATTERY_VOLTS:
         case ID_DBP_HOUSE_BATTERY_AMPS:
 		case ID_DBP_START_BATTERY_AMPS:
+		case ID_DBP_MAIN_ENGINE_FUEL_RATE:
+		case ID_DBP_PORT_ENGINE_FUEL_RATE:
+		case ID_DBP_STBD_ENGINE_FUEL_RATE:
 			item.SetImage(1);
 			break;
 		case ID_DBP_FUEL_TANK_GAUGE_01:
@@ -509,28 +520,26 @@ bool dashboard_pi::DeInit(void) {
 // Called for each timer tick, ensures valid data and refreshes each display
 void dashboard_pi::Notify()
 {
-	// BUG BUG Consider using OCPN_DBP_STC as the for loop constraints
+	// Zero the engine instruments (including engine hours)
     if (wxDateTime::Now() > (engineWatchDog + wxTimeSpan::Seconds(5))) {
-		// Zero the engine instruments
-		// We go from zero to ID_DBP_FUEL_TANK_01 + 3, because there are three additional values
-		// in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
-		// do not have their own gauge, but populate the engine rpm gauges
-		for (int i = 0; i < ID_DBP_FUEL_TANK_01 + 3; i++) {
-			SendSentenceToAllInstruments((DASH_CAP)i,0.0f, "");
+		for (int i = OCPN_DBP_STC_MAIN_ENGINE_RPM; i <= OCPN_DBP_STC_STBD_ENGINE_HOURS ; i++) {
+			SendSentenceToAllInstruments((DASH_CAP)i,0.0f, wxEmptyString);
 		}
+		// Fuel Rate Gauges
+		SendSentenceToAllInstruments((DASH_CAP)OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, 0.0f, wxEmptyString);
+		SendSentenceToAllInstruments((DASH_CAP)OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, 0.0f, wxEmptyString);
+		SendSentenceToAllInstruments((DASH_CAP)OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, 0.0f, wxEmptyString);
     }
 
+	// Zero the tank instruments
 	if (wxDateTime::Now() > (tankLevelWatchDog + wxTimeSpan::Seconds(5))) {
-		// Zero the tank instruments
-		// We go from ID_DBP_FUEL_TANK_01 + 3 to IDP_LAST_ENTRY + 3, 
-		// because there are three additional values
-		// in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
-		// do not have their own gauge, but populate the engine rpm gauges
-		for (int i = ID_DBP_FUEL_TANK_01 + 3; i < ID_DBP_LAST_ENTRY + 3; i++) {
-			SendSentenceToAllInstruments((DASH_CAP)i, 0.0f, "");
+		for (int i = OCPN_DBP_STC_TANK_LEVEL_FUEL_01; i <= OCPN_DBP_STC_TANK_LEVEL_BLACK; i++) {
+			SendSentenceToAllInstruments((DASH_CAP)i, 0.0f, wxEmptyString);
+		}
+		for (int i = OCPN_DBP_STC_TANK_LEVEL_FUEL_02; i <= OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03; i++) {
+			SendSentenceToAllInstruments((DASH_CAP)i, 0.0f, wxEmptyString);
 		}
 	}
-
 
     // Force a repaint of each instrument
     for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
@@ -1985,6 +1994,11 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 					wxLogMessage("XXXXXXXX Engine Status: %d", statusOne);
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
 				}
+
+				if (IsDataValid(fuelRate)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, fuelRate / 10.0, "L/Hour");
+				}
+
 			}
 			else {
 				if (IsDataValid(oilPressure)) {
@@ -2014,6 +2028,10 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 
 				if (statusOne != 0) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
+				}
+
+				if (IsDataValid(fuelRate)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
 				}
 			}
 			break;
@@ -2045,6 +2063,10 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 
 			if (statusOne != 0) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
+			}
+
+			if (IsDataValid(fuelRate)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
 			}
 
 			break;
@@ -3220,7 +3242,8 @@ void DashboardWindow::SetColorScheme(PI_ColorScheme cs) {
     
     // Improve appearance, especially in DUSK or NIGHT palette
     wxColour col;
-    GetGlobalColor(_T("DASHL"), &col);
+   // GetGlobalColor(_T("DASHL"), &col);
+	col = *wxLIGHT_GREY;
     SetBackgroundColour(col);
     Refresh(false);
 }
@@ -3385,6 +3408,27 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2,	DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
+				break;
+			case ID_DBP_MAIN_ENGINE_FUEL_RATE:
+				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
+					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE,0, 20 );
+				((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
+				((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
+				((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
+				break;
+			case ID_DBP_PORT_ENGINE_FUEL_RATE:
+				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
+					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, 0, 20);
+				((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
+				((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
+				((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
+				break;
+			case ID_DBP_STBD_ENGINE_FUEL_RATE:
+				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
+					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, 0, 20);
+				((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
+				((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
+				((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_FUEL_TANK_01:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,

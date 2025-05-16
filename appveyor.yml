@@ -20,8 +20,8 @@ environment:
 
 ## This can be built in Circleci and is currently the FE2 default
 ##
-#  - job_name: Visual Studio 2022
-#    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2022
+  - job_name: Visual Studio 2022
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2022
 
 
 matrix:

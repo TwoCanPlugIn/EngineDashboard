@@ -207,7 +207,8 @@ void DashboardInstrument_Dial::SetData(DASH_CAP st, double data, wxString unit) 
 
 void DashboardInstrument_Dial::Draw(wxGCDC* bdc) {
     wxColour c1;
-    GetGlobalColor(_T("DASHB"), &c1);
+    //GetGlobalColor(_T("DASHB"), &c1);
+    c1 = *wxBLACK;
     wxBrush b1(c1);
     bdc->SetBackground(b1);
     bdc->Clear();
@@ -248,7 +249,8 @@ void DashboardInstrument_Dial::DrawWarning(wxGCDC* dc) {
 void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
     wxSize size = GetClientSize();
     wxColour cl;
-    GetGlobalColor(_T("DASHL"), &cl);
+    //GetGlobalColor(_T("DASHL"), &cl);
+    cl = *wxWHITE;
     dc->SetTextForeground(cl);
     dc->SetBrush(*wxTRANSPARENT_BRUSH);
     
@@ -273,6 +275,7 @@ void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
 		// Some platforms have trouble with transparent pen.
 		// so we simply draw arcs for the outer ring.
 		GetGlobalColor(_T("DASHF"), &cl);
+        cl = *wxWHITE;
 		pen.SetWidth(penwidth);
 		pen.SetColour(cl);
 		dc->SetPen(pen);
@@ -305,6 +308,7 @@ void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
 		// Some platforms have trouble with transparent pen.
 		// so we simply draw arcs for the outer ring.
 		GetGlobalColor(_T("DASHF"), &cl);
+        cl = *wxWHITE;
 		pen.SetWidth(penwidth);
 		pen.SetColour(cl);
 		dc->SetPen(pen);
@@ -338,6 +342,7 @@ void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
 		// Some platforms have trouble with transparent pen.
 		// so we simply draw arcs for the outer ring.
 		GetGlobalColor(_T("DASHF"), &cl);
+        cl = *wxWHITE;
 		pen.SetWidth(penwidth);
 		pen.SetColour(cl);
 		dc->SetPen(pen);
@@ -356,7 +361,8 @@ void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
     
     else if (m_MarkerOption == DIAL_MARKER_REDGREENBAR) {
         pen.SetWidth(penwidth * 2);
-        GetGlobalColor(_T("DASHR"), &cl);
+        //GetGlobalColor(_T("DASHR"), &cl);
+        cl = *wxRED;
         pen.SetColour(cl);
         dc->SetPen(pen);
         double angle1 = deg2rad(270); // 305-ANGLE_OFFSET
@@ -368,7 +374,8 @@ void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
         wxCoord y2 = m_cy + ((radi) * sin(angle2));
         dc->DrawArc(x1, y1, x2, y2, m_cx, m_cy);
         
-        GetGlobalColor(_T("DASHG"), &cl);
+        //GetGlobalColor(_T("DASHG"), &cl);
+        cl = *wxGREEN;
         pen.SetColour(cl);
         dc->SetPen(pen);
         angle1 = deg2rad(89); // 305-ANGLE_OFFSET
@@ -382,6 +389,7 @@ void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
         // Some platforms have trouble with transparent pen.
         // so we simply draw arcs for the outer ring.
         GetGlobalColor(_T("DASHF"), &cl);
+        cl = *wxWHITE;
         pen.SetWidth(penwidth);
         pen.SetColour(cl);
         dc->SetPen(pen);
@@ -398,7 +406,8 @@ void DashboardInstrument_Dial::DrawFrame(wxGCDC* dc) {
         
     }
     else {
-        GetGlobalColor(_T("DASHF"), &cl);
+        //GetGlobalColor(_T("DASHF"), &cl);
+        cl = *wxWHITE;
         pen.SetColour(cl);
         dc->SetPen(pen);
         dc->DrawCircle(m_cx, m_cy, m_radius);
@@ -409,7 +418,8 @@ void DashboardInstrument_Dial::DrawMarkers(wxGCDC* dc) {
     if (m_MarkerOption == DIAL_MARKER_NONE) return;
 
     wxColour cl;
-    GetGlobalColor(_T("DASHF"), &cl);
+   // GetGlobalColor(_T("DASHF"), &cl);
+    cl = *wxWHITE;
     int penwidth = GetClientSize().x / 100;
     wxPen pen(cl, penwidth, wxPENSTYLE_SOLID);
     dc->SetPen(pen);
@@ -425,13 +435,16 @@ void DashboardInstrument_Dial::DrawMarkers(wxGCDC* dc) {
         if (m_MarkerOption == DIAL_MARKER_REDGREEN) {
             int a = int(angle + ANGLE_OFFSET) % 360;
             if (a > 180) {
-                GetGlobalColor(_T("DASHR"), &cl);
+                //GetGlobalColor(_T("DASHR"), &cl);
+                cl = *wxRED;
             }
             else if ((a > 0) && (a < 180)) {
-                GetGlobalColor(_T("DASHG"), &cl);
+                //GetGlobalColor(_T("DASHG"), &cl);
+                cl = *wxGREEN;
             }
             else {
-                GetGlobalColor(_T("DASHF"), &cl);
+               // GetGlobalColor(_T("DASHF"), &cl);
+                cl = *wxWHITE;
             }
             pen.SetColour(cl);
             dc->SetPen(pen);
@@ -450,7 +463,8 @@ void DashboardInstrument_Dial::DrawMarkers(wxGCDC* dc) {
     }
     // We must reset pen color so following drawings are fine
     if (m_MarkerOption == DIAL_MARKER_REDGREEN) {
-        GetGlobalColor(_T("DASHF"), &cl);
+        //GetGlobalColor(_T("DASHF"), &cl);
+        cl = *wxWHITE;
         pen.SetStyle(wxPENSTYLE_SOLID);
         pen.SetColour(cl);
         dc->SetPen(pen);
@@ -465,7 +479,8 @@ void DashboardInstrument_Dial::DrawLabels(wxGCDC* dc)
       wxPoint TextPoint;
       wxPen pen;
       wxColor cl;
-      GetGlobalColor(_T("DASHF"), &cl);
+      //GetGlobalColor(_T("DASHF"), &cl);
+      cl = *wxWHITE;
 
 #ifdef __WXMSW__
       wxSize size = GetClientSize();
@@ -474,7 +489,8 @@ void DashboardInstrument_Dial::DrawLabels(wxGCDC* dc)
       wxMemoryDC tdc(tbm);
 
       wxColour cback;
-      GetGlobalColor(_T("DASHB"), &cback);
+      //GetGlobalColor(_T("DASHB"), &cback);
+      cback = *wxBLACK;
       tdc.SetBackground(cback);
       tdc.Clear();
       tdc.SetFont(*g_pFontSmall);
@@ -585,7 +601,8 @@ void DashboardInstrument_Dial::DrawData(wxGCDC* dc, double value,
 
       dc->SetFont(*g_pFontLabel);
       wxColour cl;
-      GetGlobalColor(_T("DASHF"), &cl);
+      //GetGlobalColor(_T("DASHF"), &cl);
+      cl = *wxWHITE;
       dc->SetTextForeground(cl);
 
       wxSize size = GetClientSize();
@@ -627,11 +644,13 @@ void DashboardInstrument_Dial::DrawData(wxGCDC* dc, double value,
             {
                   TextPoint.x = m_cx - (width / 2) - 1;
                   TextPoint.y = (size.y * .75) - height;
-                  GetGlobalColor(_T("DASHL"), &cl);
+                  //GetGlobalColor(_T("DASHL"), &cl);
+                  cl = *wxWHITE;
                   int penwidth = size.x / 100;
                   wxPen* pen = wxThePenList->FindOrCreatePen(cl, penwidth, wxPENSTYLE_SOLID);
                   dc->SetPen(*pen);
-                  GetGlobalColor(_T("DASHB"), &cl);
+                  //GetGlobalColor(_T("DASHB"), &cl);
+                  cl = *wxBLACK;
                   dc->SetBrush(cl);
                   // There might be a background drawn below
                   // so we must clear it first.
@@ -655,11 +674,13 @@ void DashboardInstrument_Dial::DrawData(wxGCDC* dc, double value,
                   TextPoint.y = size.x-height;
                   break;
       }
-
+      // The text inside the dial
      wxColour c2;
-     GetGlobalColor(_T("DASHB"), &c2);
+     //GetGlobalColor(_T("DASHB"), &c2);
+     c2 = *wxBLACK;
      wxColour c3;
-     GetGlobalColor(_T("DASHF"), &c3);
+     //GetGlobalColor(_T("DASHF"), &c3);
+     c3 = *wxWHITE;
 
      wxStringTokenizer tkz(text, _T("\n"));
       wxString token;
@@ -697,13 +718,15 @@ void DashboardInstrument_Dial::DrawData(wxGCDC* dc, double value,
 void DashboardInstrument_Dial::DrawForeground(wxGCDC* dc) {
       // The default foreground is the arrow used in most dials
       wxColour cl;
-      GetGlobalColor(_T("DASH2"), &cl);
+      //GetGlobalColor(_T("DASH2"), &cl);
+      cl = *wxLIGHT_GREY;
       wxPen pen1;
       pen1.SetStyle(wxPENSTYLE_SOLID);
       pen1.SetColour(cl);
       pen1.SetWidth(2);
       dc->SetPen(pen1);
-      GetGlobalColor(_T("DASH1"), &cl);
+      //GetGlobalColor(_T("DASH1"), &cl);
+      cl = *wxYELLOW;
       wxBrush brush1;
       brush1.SetStyle(wxBRUSHSTYLE_SOLID);
       brush1.SetColour(cl);
@@ -712,7 +735,8 @@ void DashboardInstrument_Dial::DrawForeground(wxGCDC* dc) {
 
       dc->SetPen(*wxTRANSPARENT_PEN);
 
-      GetGlobalColor(_T("DASHN"), &cl);
+      //GetGlobalColor(_T("DASHN"), &cl); // Is this the arrow
+      cl = *wxYELLOW;
       wxBrush brush;
       brush.SetStyle(wxBRUSHSTYLE_SOLID);
       brush.SetColour(cl);

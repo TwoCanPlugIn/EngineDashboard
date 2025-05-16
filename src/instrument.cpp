@@ -121,7 +121,8 @@ void DashboardInstrument::OnPaint(wxPaintEvent& WXUNUSED(event)) {
 #endif
 
     wxColour cl;
-    GetGlobalColor(_T("DASHB"), &cl);
+    //GetGlobalColor(_T("DASHB"), &cl);
+    cl = *wxBLACK;
     dc.SetBackground(cl);
 #ifdef __WXGTK__
     dc.SetBrush(cl);
@@ -142,14 +143,16 @@ void DashboardInstrument::OnPaint(wxPaintEvent& WXUNUSED(event)) {
         {
             wxPen pen;
             pen.SetStyle(wxPENSTYLE_SOLID);
-            GetGlobalColor(_T("DASHL"), &cl);
+            //GetGlobalColor(_T("DASHL"), &cl);
+            cl = *wxGREEN;
             pen.SetColour(cl);
             dc.SetPen(pen);
             dc.SetBrush(cl);
             dc.DrawRoundedRectangle(0, 0, size.x, m_TitleHeight, 3);
 
             dc.SetFont(*g_pFontTitle);
-            GetGlobalColor(_T("DASHF"), &cl);
+           // GetGlobalColor(_T("DASHF"), &cl);
+            cl = *wxBLUE;
             dc.SetTextForeground(cl);
             dc.DrawText(m_title, 5, 0);
         }
@@ -157,20 +160,23 @@ void DashboardInstrument::OnPaint(wxPaintEvent& WXUNUSED(event)) {
 #ifdef __WXMSW__
         if (g_pFontTitle->GetPointSize() <= 12) {
             wxColour cl;
-            GetGlobalColor(_T("DASHB"), &cl);
+            //GetGlobalColor(_T("DASHB"), &cl);
+            cl = *wxBLACK;
             pdc.SetBrush(cl);
             pdc.DrawRectangle(0, 0, size.x, m_TitleHeight);
 
             wxPen pen;
             pen.SetStyle(wxPENSTYLE_SOLID);
-            GetGlobalColor(_T("DASHL"), &cl);
+           // GetGlobalColor(_T("DASHL"), &cl);
+            cl = *wxBLACK;
             pen.SetColour(cl);
             pdc.SetPen(pen);
             pdc.SetBrush(cl);
             pdc.DrawRoundedRectangle(0, 0, size.x, m_TitleHeight, 3);
 
             pdc.SetFont(*g_pFontTitle);
-            GetGlobalColor(_T("DASHF"), &cl);
+            //GetGlobalColor(_T("DASHF"), &cl);
+            cl = *wxWHITE;
             pdc.SetTextForeground(cl);
             pdc.DrawText(m_title, 5, 0);
         }
@@ -210,12 +216,14 @@ void DashboardInstrument_Single::Draw(wxGCDC* dc) {
       wxBitmap tbm(dc->GetSize().x, m_DataHeight, -1);
       wxMemoryDC tdc(tbm);
       wxColour c2;
-      GetGlobalColor(_T("DASHB"), &c2);
+      //GetGlobalColor(_T("DASHB"), &c2);
+      c2 = *wxBLACK;
       tdc.SetBackground(c2);
       tdc.Clear();
 
       tdc.SetFont(*g_pFontData);
-      GetGlobalColor(_T("DASHF"), &cl);
+      //GetGlobalColor(_T("DASHF"), &cl);
+      cl = *wxWHITE;
       tdc.SetTextForeground(cl);
 
       tdc.DrawText(m_data, 10, 0);
@@ -225,7 +233,8 @@ void DashboardInstrument_Single::Draw(wxGCDC* dc) {
       dc->DrawBitmap(tbm, 0, m_TitleHeight, false);
 #else
       dc->SetFont(*g_pFontData);
-      GetGlobalColor(_T("DASHF"), &cl);
+      //GetGlobalColor(_T("DASHF"), &cl);
+      cl = *wxWHITE;
       dc->SetTextForeground(cl);
 
       dc->DrawText(m_data, 10, m_TitleHeight);
@@ -342,7 +351,8 @@ void DashboardInstrument_Block::Draw(wxGCDC* dc) {
 	wxBitmap tbm(dc->GetSize().x, m_DataHeight, -1);
 	wxMemoryDC tdc(tbm);
 	wxColour c2;
-	GetGlobalColor(_T("DASHB"), &c2);
+	//GetGlobalColor(_T("DASHB"), &c2);
+    c2 = *wxBLACK;
 	tdc.SetBackground(c2);
 	tdc.Clear();
 
@@ -353,6 +363,7 @@ void DashboardInstrument_Block::Draw(wxGCDC* dc) {
 	else {
 		GetGlobalColor(_T("DASHR"), &cl);
 	}
+    cl = *wxWHITE;
 	tdc.SetTextForeground(cl);
 
 	tdc.DrawText(m_data, 0, 0);

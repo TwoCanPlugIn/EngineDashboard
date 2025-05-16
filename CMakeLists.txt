@@ -30,18 +30,30 @@
 set(CMLOC "CMakeLists: ")
 
 # define minimum cmake version
-cmake_minimum_required(VERSION 3.5.1)
-if (COMMAND cmake_policy)
+cmake_minimum_required(VERSION 3.10)
+if(COMMAND cmake_policy)
   if (POLICY CMP0043)
     cmake_policy(SET CMP0043 NEW)
   endif (POLICY CMP0043)
   cmake_policy(SET CMP0048 NEW)
+  if (POLICY CMP0068)
+    cmake_policy(SET CMP0068 NEW)
+  endif (POLICY CMP0068)
   if (POLICY CMP0076)
     cmake_policy(SET CMP0076 NEW)
   endif (POLICY CMP0076)
   if (POLICY CMP0077)
     cmake_policy(SET CMP0077 NEW)
   endif (POLICY CMP0077)
+  if (POLICY CMP0079)
+    cmake_policy(SET CMP0079 NEW)
+  endif (POLICY CMP0079)
+  if (POLICY CMP0175)
+    cmake_policy(SET CMP0175 NEW)
+  endif (POLICY CMP0175)
+  if (POLICY CMP0177)
+    cmake_policy(SET CMP0177 NEW)
+  endif (POLICY CMP0177)
 endif (COMMAND cmake_policy)
 
 # set for vscode/vscodium
@@ -274,6 +286,8 @@ add_definitions(-DTIXML_USE_STL)
 if (UNIX
     AND NOT APPLE
     AND NOT QT_ANDRIOD
+    AND NOT OCPN_FLATPAK_CONFIG
+    AND NOT OCPN_FLATPAK_BUILD
 )
   if (PI_JSON_SCHEMA_VALIDATOR)
     # Change OS/ABI to be UNIX - System V to make it run with OCPN
