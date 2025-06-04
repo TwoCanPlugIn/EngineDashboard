@@ -24,6 +24,7 @@
 // 1.81  05/06/2024 - Fix for incorrect display of rudder angle
 // 1.9	 01/12/2024 - Add icon display in tachometer for engine faults, added corresponding SignalK notifications
 // 1.91  13/05/2025 - Experimental - override nightmode, Add fuel flow gauge
+// 1.92  01/06/2025 - Fix fuel flow gauge, PGN 127486 flow rate is a signed short, why signed ?? 
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -78,15 +79,16 @@ wxFont *g_pFontSmall;
 int g_iDashTachometerMax;
 int g_iDashTemperatureUnit;
 int g_iDashPressureUnit;
+int g_iDashVolumeUnit;
 
 // If using NMEA 183 v4.11 or ShipModul/Maretron transducer names,
 // If we are a dual engine vessel, instance 0 refers to port engine & instance 1 to the starboard engine
 // If not a dual engine vessel, instance 0 refers to the main engine.
 // Global values because used by instances of both the plugin & preference classes
-bool dualEngine; 
+bool g_bDualEngine; 
 
 // If the voltmeter display range is for 12 or 24 volt systems.
-bool twentyFourVolts;
+bool g_bTwentyFourVolts;
 
 
 #if !defined(NAN)
@@ -682,12 +684,12 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			engineWatchDog = wxDateTime::Now();
 		}
 
-		// Units in revolutions per second
-		if ((update_path == _T("propulsion.port.revolutions")) && (!dualEngine)) {
+		// RPM, Units in revolutions per second
+		if ((update_path == _T("propulsion.port.revolutions")) && (!g_bDualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
 		}
 
-		if ((update_path == _T("propulsion.port.revolutions")) && (dualEngine)) {
+		if ((update_path == _T("propulsion.port.revolutions")) && (g_bDualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
 		}
 
@@ -696,12 +698,12 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
 		}
 		
-		// Units in volts
-		if ((update_path == _T("propulsion.port.alternatorVoltage")) && (!dualEngine)) {
+		// Alternator Potential, Units in volts
+		if ((update_path == _T("propulsion.port.alternatorVoltage")) && (!g_bDualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
 		}
 
-		if ((update_path == _T("propulsion.port.alternatorVoltage")) && (dualEngine)) {
+		if ((update_path == _T("propulsion.port.alternatorVoltage")) && (g_bDualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
 		}
 
@@ -710,13 +712,14 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
 		}
 
+		// Oil Pressure
 		if (g_iDashPressureUnit == PRESSURE_BAR) {
 			// Units are in Pascals. 100000 Pascals = 1 Bar
-			if ((update_path == _T("propulsion.port.oilPressure")) && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) && (!g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
 			}
 
-			if ((update_path == _T("propulsion.port.oilPressure")) && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) && (g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
 			}
 
@@ -727,11 +730,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 		}
 
 		else if (g_iDashPressureUnit == PRESSURE_PSI) {
-			if ((update_path == _T("propulsion.port.oilPressure")) && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) && (!g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
 			}
 
-			if ((update_path == _T("propulsion.port.oilPressure")) && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.oilPressure")) && (g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
 			}
 
@@ -741,13 +744,14 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 		}
 		
+		// Engine Temperature
 		if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
 			// Units are in Kelvin
-			if ((update_path == _T("propulsion.port.temperature")) && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.temperature")) && (!g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
-			if ((update_path == _T("propulsion.port.temperature")) && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.temperature")) && (g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
@@ -756,11 +760,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
-			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
-			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
 			}
 
@@ -770,11 +774,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			}
 		}
 		else if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-			if ((update_path == _T("propulsion.port.temperature")) && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.temperature")) && (!g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
-			if ((update_path == _T("propulsion.port.temperature")) && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.temperature")) && (g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
@@ -783,11 +787,11 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
-			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!dualEngine)) {
+			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
-			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (dualEngine)) {
+			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (g_bDualEngine)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 
@@ -796,12 +800,43 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
 			}
 		}
+
+		// Fuel Rate
+		if (g_iDashVolumeUnit == VOLUME_LITRE) {
+			if ((update_path == _T("propulsion.port.fuel.rate")) && (!g_bDualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, GetJsonDouble(value)/ 10, "L/Hour");
+			}
+
+			if ((update_path == _T("propulsion.port.fuel.rate")) && (g_bDualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, GetJsonDouble(value) / 10, "L/Hour");
+			}
+
+			if (update_path == _T("propulsion.starboard.fuel.rate")) {
+				// dualEngine = TRUE;
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, GetJsonDouble(value) / 10, "L/Hour");
+			}
+		}
+		else if (g_iDashVolumeUnit == VOLUME_GALLON) {
+			if ((update_path == _T("propulsion.port.fuel.rate")) && (!g_bDualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, LITRES_GALLONS(GetJsonDouble(value) / 10), "Gal/Hr");
+			}
+
+			if ((update_path == _T("propulsion.port.fuel.rate")) && (g_bDualEngine)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, LITRES_GALLONS(GetJsonDouble(value) / 10), "Gal/Hr");
+			}
+
+			if (update_path == _T("propulsion.starboard.fuel.rate")) {
+				// dualEngine = TRUE;
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, LITRES_GALLONS(GetJsonDouble(value) / 10), "Gal/Hr");
+			}
+		}
+
 		// Units are in seconds
-		if ((update_path == _T("propulsion.port.runTime")) && (!dualEngine)) {
+		if ((update_path == _T("propulsion.port.runTime")) && (!g_bDualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
 		}
 
-		if ((update_path == _T("propulsion.port.runTime")) && (dualEngine)) {
+		if ((update_path == _T("propulsion.port.runTime")) && (g_bDualEngine)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
 		}
 
@@ -835,194 +870,194 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 			// Status One Alarm conditions
 			// Main Engine
 			// Bit 0
-			if ((update_path == "notifications.propulsion.port.checkEngine") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.checkEngine") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 1, wxEmptyString);
 				}
 			}
 			// Bit 1
-			if ((update_path == "notifications.propulsion.port.overTemperature") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.overTemperature") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 2, wxEmptyString);
 				}
 			}
 			// Bit 2
-			if ((update_path == "notifications.propulsion.port.lowOilPressure") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowOilPressure") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 4, wxEmptyString);
 				}
 			}
 			// Bit 3
-			if ((update_path == "notifications.propulsion.port.lowOilLevel") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowOilLevel") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 8, wxEmptyString);
 				}
 			}
 			// Bit 4
-			if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 16, wxEmptyString);
 				}
 			}
 			// Bit 5
-			if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 32, wxEmptyString);
 				}
 			}
 			// Bit 6
-			if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 64, wxEmptyString);
 				}
 			}
 			// Bit 7
-			if ((update_path == "notifications.propulsion.port.waterFlow") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.waterFlow") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 128, wxEmptyString);
 				}
 			}
 			// Bit 8
-			if ((update_path == "notifications.propulsion.port.waterInFuel") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.waterInFuel") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 256, wxEmptyString);
 				}
 			}
 			// Bit 9
-			if ((update_path == "notifications.propulsion.port.chargeIndicator") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.chargeIndicator") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 512, wxEmptyString);
 				}
 			}
 			// Bit 10
-			if ((update_path == "notifications.propulsion.port.preheatIndicator") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.preheatIndicator") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 1024, wxEmptyString);
 				}
 			}
 			// Bit 11
-			if ((update_path == "notifications.propulsion.port.highBoostPressure") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.highBoostPressure") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 2048, wxEmptyString);
 				}
 			}
 			// Bit 12
-			if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 4096, wxEmptyString);
 				}
 			}
 			// Bit 13
-			if ((update_path == "notifications.propulsion.port.eGRSystem") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.eGRSystem") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 8192, wxEmptyString);
 				}
 			}
 			// Bit 14
-			if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 16384, wxEmptyString);
 				}
 			}
 			//Bit 15
-			if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (!dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (!g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 32768, wxEmptyString);
 				}
 			}
 			// Port Engine
 			// Bit 0
-			if ((update_path == "notifications.propulsion.port.checkEngine") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.checkEngine") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 1, wxEmptyString);
 				}
 			}
 			// Bit 1
-			if ((update_path == "notifications.propulsion.port.overTemperature") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.overTemperature") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 2, wxEmptyString);
 				}
 			}
 			// Bit 2
-			if ((update_path == "notifications.propulsion.port.lowOilPressure") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowOilPressure") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 4, wxEmptyString);
 				}
 			}
 			// Bit 3
-			if ((update_path == "notifications.propulsion.port.lowOilLevel") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowOilLevel") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 8, wxEmptyString);
 				}
 			}
 			// Bit 4
-			if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 16, wxEmptyString);
 				}
 			}
 			// Bit 5
-			if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 32, wxEmptyString);
 				}
 			}
 			// Bit 6
-			if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 64, wxEmptyString);
 				}
 			}
 			// Bit 7
-			if ((update_path == "notifications.propulsion.port.waterFlow") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.waterFlow") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 128, wxEmptyString);
 				}
 			}
 			// Bit 8
-			if ((update_path == "notifications.propulsion.port.waterInFuel") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.waterInFuel") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 256, wxEmptyString);
 				}
 			}
 			// Bit 9
-			if ((update_path == "notifications.propulsion.port.chargeIndicator") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.chargeIndicator") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 512, wxEmptyString);
 				}
 			}
 			// Bit 10
-			if ((update_path == "notifications.propulsion.port.preheatIndicator") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.preheatIndicator") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 1024, wxEmptyString);
 				}
 			}
 			// Bit 11
-			if ((update_path == "notifications.propulsion.port.highBoostPressure") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.highBoostPressure") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 2048, wxEmptyString);
 				}
 			}
 			// Bit 12
-			if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 4096, wxEmptyString);
 				}
 			}
 			// Bit 13
-			if ((update_path == "notifications.propulsion.port.eGRSystem") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.eGRSystem") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 8192, wxEmptyString);
 				}
 			}
 			// Bit 14
-			if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 16384, wxEmptyString);
 				}
 			}
 			//Bit 15
-			if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (dualEngine)) {
+			if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (g_bDualEngine)) {
 				if (CheckAlarmState(value)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 32768, wxEmptyString);
 				}
@@ -1266,20 +1301,20 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_bDualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_bDualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, xdrdata, xdrunit);
 					}
 					// Ship Modul/Maretron transducer names
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (!dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (!g_bDualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (g_bDualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, xdrdata, xdrunit);
 					}
 				}
@@ -1305,30 +1340,30 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, xdrdata, xdrunit);
 						}
 						// Engine Exhaust
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, xdrdata, xdrunit);
 						}
 						// Ship Modul/Maretron Transducer Names
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, xdrdata, xdrunit);
 						}
 					}
@@ -1349,30 +1384,30 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
 						// Exhaust Temperature
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
 						// Ship Modul/Maretron Transducer Names
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
 					}
@@ -1398,20 +1433,20 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
 						// Ship Modul/Maretron Transducer Names
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
 
@@ -1432,20 +1467,20 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
 						// Ship Modul/MaretronTransducer Names
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (dualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (g_bDualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
 					}
@@ -1476,10 +1511,10 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (!dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (!g_bDualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (g_bDualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATTERY#0")) {
@@ -1492,10 +1527,10 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (!dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (!g_bDualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (g_bDualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATVOLT0")) {
@@ -1565,12 +1600,12 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						stbdEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_bDualEngine)) {
 						xdrunit = _T("Hrs");
 						mainEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_bDualEngine)) {
 						xdrunit = _T("Hrs");
 						portEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
@@ -1584,12 +1619,12 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						stbdEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (!dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (!g_bDualEngine)) {
 						xdrunit = _T("Hrs");
 						mainEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (g_bDualEngine)) {
 						xdrunit = _T("Hrs");
 						portEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
@@ -1603,12 +1638,12 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						stbdEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (!dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (!g_bDualEngine)) {
 						xdrunit = _T("Hrs");
 						mainEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (dualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (g_bDualEngine)) {
 						xdrunit = _T("Hrs");
 						portEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
@@ -1862,7 +1897,7 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 	engineTrim = payload[index + 5];
 
 	if (engineInstance > 0) {
-		dualEngine = TRUE;
+		g_bDualEngine = TRUE;
 	}
 
 	engineWatchDog = wxDateTime::Now();
@@ -1870,7 +1905,7 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 	if (IsDataValid(engineSpeed)) {
 		switch (engineInstance) {
 			case 0:
-				if (dualEngine) {
+				if (g_bDualEngine) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
 				}
 				else {
@@ -1901,10 +1936,10 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	unsigned short engineTemperature; // 0.01 degree resolution, in Kelvin
 	engineTemperature = payload[index + 5] | (payload[index + 6] << 8);
 
-	unsigned short alternatorPotential; // 0.01 Volts
+	short alternatorPotential; // 0.01 Volts
 	alternatorPotential = payload[index + 7] | (payload[index + 8] << 8);
 
-	unsigned short fuelRate; // 0.1 Litres/hour
+	short fuelRate; // 0.1 Litres/hour
 	fuelRate = payload[index + 9] | (payload[index + 10] << 8);
 
 	unsigned int totalEngineHours;  // seconds
@@ -1958,12 +1993,12 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	engineTorque = payload[index + 25];
 
 	if (engineInstance > 0) {
-		dualEngine = TRUE;
+		g_bDualEngine = TRUE;
 	}
 
 	switch (engineInstance) {
 		case 0:
-			if (dualEngine) {
+			if (g_bDualEngine) {
 				if (IsDataValid(oilPressure)) {
 					if (g_iDashPressureUnit == PRESSURE_BAR) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, oilPressure * 1e-3, "Bar");
@@ -1996,7 +2031,12 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 				}
 
 				if (IsDataValid(fuelRate)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, fuelRate / 10.0, "L/Hour");
+					if (g_iDashVolumeUnit == VOLUME_LITRE) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, fuelRate / 10.0, "L/Hour");
+					}
+					if (g_iDashVolumeUnit == VOLUME_GALLON) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, LITRES_GALLONS(fuelRate / 10.0), "Gal/Hr");
+					}
 				}
 
 			}
@@ -2031,7 +2071,12 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 				}
 
 				if (IsDataValid(fuelRate)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
+					if (g_iDashVolumeUnit == VOLUME_LITRE) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
+					}
+					if (g_iDashVolumeUnit == VOLUME_GALLON) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, LITRES_GALLONS(fuelRate / 10), "Gal/Hr");
+					}
 				}
 			}
 			break;
@@ -2066,7 +2111,12 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 			}
 
 			if (IsDataValid(fuelRate)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
+				if (g_iDashVolumeUnit == VOLUME_LITRE) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
+				}
+				if (g_iDashVolumeUnit == VOLUME_GALLON) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, LITRES_GALLONS(fuelRate / 10), "Gal/Hr");
+				}
 			}
 
 			break;
@@ -2194,7 +2244,7 @@ void dashboard_pi::HandleN2K_130312(ObservedEvt ev) {
 	setTemperature = payload[index + 5] | (payload[index + 6] << 8);
 
 	if (engineInstance > 0) {
-		dualEngine = TRUE;
+		g_bDualEngine = TRUE;
 	}
 
 	// Source 14 indicates exhaust temperature
@@ -2202,7 +2252,7 @@ void dashboard_pi::HandleN2K_130312(ObservedEvt ev) {
 
 		switch (engineInstance) {
 			case 0:
-				if (dualEngine) {
+				if (g_bDualEngine) {
 					if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, CONVERT_KELVIN((actualTemperature * 0.01f)), _T("\u00B0 C"));
 					}
@@ -2483,8 +2533,9 @@ bool dashboard_pi::LoadConfig(void) {
 		pConf->Read(_T("TachometerMax"), &g_iDashTachometerMax, 6000);
 		pConf->Read(_T("TemperatureUnit"), &g_iDashTemperatureUnit, TEMPERATURE_CELSIUS);
 		pConf->Read(_T("PressureUnit"), &g_iDashPressureUnit, PRESSURE_BAR);
-        pConf->Read(_T("DualEngine"), &dualEngine, false);
-        pConf->Read(_T("TwentyFourVolt"), &twentyFourVolts, false);
+		pConf->Read(_T("VolumeUnit"), &g_iDashVolumeUnit, VOLUME_LITRE);
+        pConf->Read(_T("DualEngine"), &g_bDualEngine, false);
+        pConf->Read(_T("TwentyFourVolt"), &g_bTwentyFourVolts, false);
 		
 		// Now retrieve the number of dashboard containers and their instruments
         int d_cnt;
@@ -2587,8 +2638,9 @@ bool dashboard_pi::SaveConfig(void) {
 	    pConf->Write(_T("TachometerMax"), g_iDashTachometerMax);
 	    pConf->Write(_T("TemperatureUnit"), g_iDashTemperatureUnit);
 	    pConf->Write(_T("PressureUnit"), g_iDashPressureUnit);
-        pConf->Write(_T("DualEngine"), dualEngine);
-        pConf->Write(_T("TwentyFourVolt"), twentyFourVolts);
+		pConf->Write(_T("VolumeUnit"), g_iDashVolumeUnit);
+        pConf->Write(_T("DualEngine"), g_bDualEngine);
+        pConf->Write(_T("TwentyFourVolt"), g_bTwentyFourVolts);
 
         pConf->Write(_T("DashboardCount"), (int) m_ArrayOfDashboardWindow.GetCount());
         for (unsigned int i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
@@ -2873,6 +2925,13 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(wxWindow *parent, wxWindo
     wxFlexGridSizer *itemFlexGridSizer04 = new wxFlexGridSizer(2);
     itemFlexGridSizer04->AddGrowableCol(1);
     itemStaticBoxSizer04->Add(itemFlexGridSizer04, 1, wxEXPAND | wxALL, 0);
+
+	/*wxPanel* itemPanelNotebook03 = new wxPanel(itemNotebook, wxID_ANY, wxDefaultPosition,
+		wxDefaultSize, wxTAB_TRAVERSAL);
+	wxBoxSizer* itemBoxSizer06 = new wxBoxSizer(wxVERTICAL);
+	itemPanelNotebook03->SetSizer(itemBoxSizer06);
+	itemNotebook->AddPage(itemPanelNotebook03, _("Units"));*/
+
     
     // Sets the maximum RPM in the tachometer control
     wxStaticText* itemStaticTextTachometerM = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Tachometer Maximum RPM:"),
@@ -2901,20 +2960,32 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(wxWindow *parent, wxWindo
     m_pChoicePressureUnit->SetSelection(g_iDashPressureUnit);
     itemFlexGridSizer04->Add(m_pChoicePressureUnit, 0, wxALIGN_RIGHT | wxALL, 0);
 
+	// Enable the user to specify volumes in litres or gallons
+	wxStaticText* itemStaticTextVolumeU = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Volume units:"),
+		wxDefaultPosition, wxDefaultSize, 0);
+	itemFlexGridSizer04->Add(itemStaticTextVolumeU, 0, wxEXPAND | wxALL, border_size);
+	wxString m_VolumeUnitChoices[] = { _("Litres"), _("Gallons") };
+	int m_VolumeUnitNChoices = sizeof(m_VolumeUnitChoices) / sizeof(wxString);
+	m_pChoiceVolumeUnit = new wxChoice(itemPanelNotebook02, wxID_ANY, wxDefaultPosition, wxDefaultSize, m_VolumeUnitNChoices, m_VolumeUnitChoices, 0);
+	m_pChoiceVolumeUnit->SetSelection(g_iDashVolumeUnit);
+	itemFlexGridSizer04->Add(m_pChoiceVolumeUnit, 0, wxALIGN_RIGHT | wxALL, 0);
+
+	// Enable the user to configure voltage as 12 or 24 volts
     wxStaticText* itemStaticTwentyFourVolts = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Enable 24 volt range for voltmeter. Unchecked defaults to 12 volt:"),
             wxDefaultPosition, wxDefaultSize, 0);
     itemFlexGridSizer04->Add(itemStaticTwentyFourVolts, 0, wxEXPAND | wxALL, border_size);
     m_pCheckBoxTwentyFourVolts = new wxCheckBox(itemPanelNotebook02, wxID_ANY, _("24 volt DC"),
             wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-    m_pCheckBoxTwentyFourVolts->SetValue(twentyFourVolts);
+    m_pCheckBoxTwentyFourVolts->SetValue(g_bTwentyFourVolts);
     itemFlexGridSizer04->Add(m_pCheckBoxTwentyFourVolts, 0, wxALIGN_RIGHT | wxALL, 0);
 
+	// Enable the user to specify of the vessel is dual engine (interprets engine instance 0 as pport engine)
     wxStaticText* itemStaticTextDualEngine = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("For dual engines, instance 0 is the port engine\nand instance 1 is the starboard engine.\nFor single engines, instance 0 is the main engine."),
             wxDefaultPosition, wxDefaultSize, 0);
     itemFlexGridSizer04->Add(itemStaticTextDualEngine, 0, wxEXPAND | wxALL, border_size);
     m_pCheckBoxDualengine = new wxCheckBox(itemPanelNotebook02, wxID_ANY, _("Dual Engine Vessel"),
             wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-    m_pCheckBoxDualengine->SetValue(dualEngine);
+    m_pCheckBoxDualengine->SetValue(g_bDualEngine);
     itemFlexGridSizer04->Add(m_pCheckBoxDualengine, 0, wxALIGN_RIGHT | wxALL, 0);
 
 	wxStdDialogButtonSizer* DialogButtonSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL);
@@ -2944,8 +3015,9 @@ void DashboardPreferencesDialog::SaveDashboardConfig(void) {
     g_iDashTachometerMax = m_pSpinSpeedMax->GetValue();
     g_iDashTemperatureUnit = m_pChoiceTemperatureUnit->GetSelection();
     g_iDashPressureUnit = m_pChoicePressureUnit->GetSelection();
-    dualEngine = m_pCheckBoxDualengine->IsChecked();
-    twentyFourVolts = m_pCheckBoxTwentyFourVolts->IsChecked();
+	g_iDashVolumeUnit = m_pChoiceVolumeUnit->GetSelection();
+    g_bDualEngine = m_pCheckBoxDualengine->IsChecked();
+    g_bTwentyFourVolts = m_pCheckBoxTwentyFourVolts->IsChecked();
     
     if (curSel != -1) {
         DashboardWindowContainer *cont = m_Config.Item(curSel);
@@ -3390,42 +3462,42 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				break;
 			case ID_DBP_MAIN_ENGINE_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
+					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_PORT_ENGINE_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
+					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2,	DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_STBD_ENGINE_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
+					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2,	DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_MAIN_ENGINE_FUEL_RATE:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE,0, 20 );
+					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, 0, g_iDashVolumeUnit == VOLUME_LITRE ? 10 : 4 );
 				((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_PORT_ENGINE_FUEL_RATE:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, 0, 20);
+					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, 0, g_iDashVolumeUnit == VOLUME_LITRE ? 10 : 4);
 				((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_STBD_ENGINE_FUEL_RATE:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, 0, 20);
+					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, 0, g_iDashVolumeUnit == VOLUME_LITRE ? 10 : 4);
 				((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
 				((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
@@ -3486,14 +3558,14 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				break;
 			case ID_DBP_START_BATTERY_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY, GetInstrumentCaption(id), 
-				OCPN_DBP_STC_START_BATTERY_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
+				OCPN_DBP_STC_START_BATTERY_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_GREEN_MID, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_START_BATTERY_AMPS, _T("%.1f"), DIAL_POSITION_INSIDE);
 				break;
 			case ID_DBP_HOUSE_BATTERY_VOLTS:
 				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY, GetInstrumentCaption(id), 
-				OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, twentyFourVolts?18:8, twentyFourVolts?32:16);
+				OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
 				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
 				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_GREEN_MID, 1);
 				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, _T("%.1f"), DIAL_POSITION_INSIDE);

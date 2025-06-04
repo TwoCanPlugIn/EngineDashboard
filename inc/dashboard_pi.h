@@ -95,6 +95,9 @@ class DashboardInstrumentContainer;
 // RADIANS/DEGREES
 #define RADIANS_TO_DEGREES(x) ((x) * 180 / M_PI)
 
+// LITRE to GALLON
+#define LITRES_GALLONS(x) (x / 3.7)
+
 wxString iconFolder;
 
 class DashboardWindowContainer {
@@ -390,6 +393,7 @@ public:
     wxChoice *m_pChoiceUTCOffset;
     wxChoice *m_pChoiceTemperatureUnit;
     wxChoice *m_pChoicePressureUnit;
+	wxChoice* m_pChoiceVolumeUnit;
     wxSpinCtrlDouble *m_pSpinDBTOffset;
     wxChoice *m_pChoiceDistanceUnit;
     wxChoice *m_pChoiceWindSpeedUnit;
@@ -445,6 +449,11 @@ enum {
 enum {
 	TEMPERATURE_CELSIUS,
 	TEMPERATURE_FAHRENHEIT
+};
+
+enum {
+	VOLUME_LITRE,
+	VOLUME_GALLON
 };
 
 class DashboardWindow : public wxWindow {
