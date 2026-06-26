@@ -239,6 +239,9 @@ private:
 	// Fluid Levels
 	void HandleN2K_127505(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127505;
+	// DC Detailed Status
+	void HandleN2K_127506(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_127506;
 	// Battery Status
 	void HandleN2K_127508(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127508;

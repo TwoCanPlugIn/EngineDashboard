@@ -23,6 +23,7 @@
 // 1.8   08/05/2024 - Fix for engine hours (decimal units), Add PGN 127245 Rudder Angle
 // 1.81  05/06/2024 - Fix for incorrect display of rudder angle
 // 1.9	 01/12/2024 - Add icon display in tachometer for engine faults, added corresponding SignalK notifications
+// 1.91  22/05/2026 - Add PGN 127506 DC Detailed Status for State of Charge & Amp Hours
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
@@ -124,7 +125,8 @@ enum {
 	ID_DBP_START_BATTERY_AMPS, ID_DBP_HOUSE_BATTERY_VOLTS, ID_DBP_HOUSE_BATTERY_AMPS, 
 	ID_DBP_FUEL_TANK_02, ID_DBP_WATER_TANK_02, ID_DBP_WATER_TANK_03,
 	ID_DBP_FUEL_TANK_GAUGE_01, ID_DBP_FUEL_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_01,
-	ID_DBP_WATER_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_03,
+	ID_DBP_WATER_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_03, ID_DBP_START_BATTERY_SOC,
+	ID_DBP_START_BATTERY_HOURS, ID_DBP_HOUSE_BATTERY_SOC, ID_DBP_HOUSE_BATTERY_HOURS,
 	ID_DBP_LAST_ENTRY //this has a reference in one of the routines; defining a "LAST_ENTRY" and setting the reference to it, is one codeline less to change (and find) when adding new instruments :-)
 };
 
@@ -194,6 +196,14 @@ wxString GetInstrumentCaption(unsigned int id) {
 			return _("Start Battery Current");
 		case ID_DBP_HOUSE_BATTERY_AMPS:
 			return _("House Battery Current");
+		case ID_DBP_START_BATTERY_SOC:
+			return _("Start Battery SOC");
+		case ID_DBP_START_BATTERY_HOURS:
+			return _("Start Battery Hours");
+		case ID_DBP_HOUSE_BATTERY_SOC:
+			return _("House Battery SOC");
+		case ID_DBP_HOUSE_BATTERY_HOURS:
+			return _("House Battery Hours");
 		default:
 			return _("");
     }
@@ -409,6 +419,14 @@ int dashboard_pi::Init(void) {
 	Bind(EVT_N2K_127505, [&](ObservedEvt ev) {
 		HandleN2K_127505(ev);
 	});
+
+	// PGN 127506 DC Detailed Status
+	wxDEFINE_EVENT(EVT_N2K_127506, ObservedEvt);
+	NMEA2000Id id_127506 = NMEA2000Id(127506);
+	listener_127506 = std::move(GetListener(id_127506, EVT_N2K_127506, this));
+	Bind(EVT_N2K_127506, [&](ObservedEvt ev) {
+		HandleN2K_127506(ev);
+		});
 
 	// PGN 127508 Battery Status
 	wxDEFINE_EVENT(EVT_N2K_127508, ObservedEvt);
@@ -815,6 +833,22 @@ void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
 
 		if (update_path == _T("electrical.batteries.1.current")) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, GetJsonDouble(value), "Amps");
+		}
+
+		if (update_path == _T("electrical.batteries.0.capacity.stateOfCharge")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_SOC, GetJsonDouble(value), "%");
+		}
+
+		if (update_path == _T("electrical.batteries.0.capacity.remaining")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_HOURS, GetJsonDouble(value), "Hours");
+		}
+
+		if (update_path == _T("electrical.batteries.1.capacity.stateOfCharge")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_SOC, GetJsonDouble(value), "%");
+		}
+
+		if (update_path == _T("electrical.batteries.1.capacity.remaining")) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_HOURS, GetJsonDouble(value), "Hours");
 		}
 
 		if (update_path.StartsWith(_T("steering.rudderAngle"))) {
@@ -2113,6 +2147,49 @@ void dashboard_pi::HandleN2K_127505(ObservedEvt ev) {
 				}
 				break;
 			}
+	}
+}
+
+// PGN 127506 Battery Status
+void dashboard_pi::HandleN2K_127506(ObservedEvt ev) {
+	NMEA2000Id id_127506(127508);
+	std::vector<uint8_t>payload = GetN2000Payload(id_127506, ev);
+
+	byte sid;
+	sid = payload[index + 0];
+
+	byte batteryInstance;
+	batteryInstance = payload[index + 1];
+
+	byte chargeSource;
+	chargeSource = payload[index + 2];
+
+	byte stateOfCharge; // %
+	stateOfCharge = payload[index + 3];
+
+	byte stateOfHealth; // %
+	stateOfHealth = payload[index + 4];
+
+	unsigned short timeRemaining; // Hours
+	timeRemaining = payload[index + 5] | (payload[index + 6] << 8);
+
+	unsigned short rippleVoltage; // milliVolts, so multiply by 1e-3
+	rippleVoltage = payload[index + 7] | (payload[index + 8] << 8);
+
+	unsigned short ampHours; // Hours
+	ampHours = payload[index + 9] | (payload[index + 10] << 8);
+
+	if ((IsDataValid(stateOfCharge)) && (IsDataValid(timeRemaining))) {
+
+		if (batteryInstance == 0) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_SOC, stateOfCharge, "%");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_HOURS, timeRemaining, "Hours");
+		}
+
+		if (batteryInstance == 1) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_SOC, stateOfCharge, "%");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_HOURS, timeRemaining,"Hours");
+		}
 	}
 }
 
@@ -3475,6 +3552,18 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
 				break;
 			case ID_DBP_WATER_TANK_GAUGE_03:
 				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, "%s");
+				break;
+			case ID_DBP_START_BATTERY_SOC:
+				instrument = new DashboardInstrument_Single(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_START_BATTERY_SOC, "%s");
+				break;
+			case ID_DBP_START_BATTERY_HOURS:
+				instrument = new DashboardInstrument_Single(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_START_BATTERY_HOURS, "%s");
+				break;
+			case ID_DBP_HOUSE_BATTERY_SOC:
+				instrument = new DashboardInstrument_Single(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_HOUSE_BATTERY_SOC, "%s");
+				break;
+			case ID_DBP_HOUSE_BATTERY_HOURS:
+				instrument = new DashboardInstrument_Single(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_HOUSE_BATTERY_HOURS, "%s");
 				break;
 		}
         if (instrument) {
