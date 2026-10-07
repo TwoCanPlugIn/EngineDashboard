@@ -23,1228 +23,947 @@
 // 1.8   08/05/2024 - Fix for engine hours (decimal units), Add PGN 127245 Rudder Angle
 // 1.81  05/06/2024 - Fix for incorrect display of rudder angle
 // 1.9	 01/12/2024 - Add icon display in tachometer for engine faults, added corresponding SignalK notifications
-// 1.91  13/05/2025 - Experimental - override nightmode, Add fuel flow gauge
-// 1.92  01/06/2025 - Fix fuel flow gauge, PGN 127486 flow rate is a signed short, why signed ?? 
+// 1.91  22/05/2026 - Add PGN 127506 DC Detailed Status for State of Charge & Amp Hours
+// 2.0   01/10/2026 - Adopted current Dashboard model (for Android support), Use SignalK observer model,
+//                    and refactored
 // 
 // Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
 //
-/*
- * $Id: dashboard_pi.cpp, v1.0 2010/08/05 SethDart Exp $
- *
+/***************************************************************************
  * Project:  OpenCPN
- * Purpose:  Dashboard Plugin
+ * Purpose:  Dashboard Plugin - dashboard_pi class implementation
  * Author:   Jean-Eudes Onfray
+ * expanded: Bernd Cirotzki 2023 (special colour design)
  *
- */
+ *   Copyright (C) 2010 by David S. Register
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ ***************************************************************************/
 
- /**************************************************************************
- *   Copyright (C) 2010 by David S. Register                               *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
- ***************************************************************************
- */
-
-// wxWidgets Precompiled Headers
-#include "wx/wxprec.h"
-
-#ifndef  WX_PRECOMP
-#include "wx/wx.h"
-#endif 
+#include <wx/wxprec.h>
+#ifndef WX_PRECOMP
+#include <wx/wx.h>
+#endif
 
 #include "dashboard_pi.h"
 
-#include <typeinfo>
-#include "icons.h"
 
-// Global variables for fonts
-wxFont *g_pFontTitle;
-wxFont *g_pFontData;
-wxFont *g_pFontLabel;
-wxFont *g_pFontSmall;
+// BUG BUG Commented out as it broke build. What needs to be fixed ?
+//#include "../../../gui/include/gui/ocpn_fontdlg.h"
+// 
+// Intended to load OpenCPN offline manual
+//#include "manual.h"
 
-// Preferences, Units and Max Values
-int g_iDashTachometerMax;
-int g_iDashTemperatureUnit;
-int g_iDashPressureUnit;
-int g_iDashVolumeUnit;
-
-// If using NMEA 183 v4.11 or ShipModul/Maretron transducer names,
-// If we are a dual engine vessel, instance 0 refers to port engine & instance 1 to the starboard engine
-// If not a dual engine vessel, instance 0 refers to the main engine.
-// Global values because used by instances of both the plugin & preference classes
-bool g_bDualEngine; 
-
-// If the voltmeter display range is for 12 or 24 volt systems.
-bool g_bTwentyFourVolts;
-
-
-#if !defined(NAN)
-static const long long lNaN = 0xfff8000000000000;
-#define NAN (*(double*)&lNaN)
+#ifdef __OCPN__ANDROID__
+#include "qdebug.h"
+#include <QtWidgets/QScroller>
 #endif
 
-// The class factories, used to create and destroy instances of the PlugIn
-// BUG BUG Consider refactoring/renaming the classes
-
-extern "C" DECL_EXP opencpn_plugin* create_pi(void *ppimgr) {
-    return (opencpn_plugin *) new dashboard_pi(ppimgr);
-}
-
-extern "C" DECL_EXP void destroy_pi(opencpn_plugin* p) {
-    delete p;
-}
-
-//---------------------------------------------------------------------------------------------------------
-//
-//    Engine Dashboard PlugIn Implementation
-//
-//---------------------------------------------------------------------------------------------------------
-
-// !!! WARNING !!!
-// do not change the order, add new instruments at the end, before ID_DBP_LAST_ENTRY!
-// otherwise, for users with an existing opencpn.ini file, their instruments are changing !
-enum {
-    ID_DBP_MAIN_ENGINE_RPM, ID_DBP_PORT_ENGINE_RPM, ID_DBP_STBD_ENGINE_RPM,
-	ID_DBP_MAIN_ENGINE_OIL, ID_DBP_PORT_ENGINE_OIL, ID_DBP_STBD_ENGINE_OIL,
-	ID_DBP_MAIN_ENGINE_WATER, ID_DBP_PORT_ENGINE_WATER, ID_DBP_STBD_ENGINE_WATER,
-	ID_DBP_MAIN_ENGINE_VOLTS, ID_DBP_PORT_ENGINE_VOLTS, ID_DBP_STBD_ENGINE_VOLTS,
-	ID_DBP_MAIN_ENGINE_EXHAUST, ID_DBP_PORT_ENGINE_EXHAUST, ID_DBP_STBD_ENGINE_EXHAUST,
-	ID_DBP_FUEL_TANK_01, ID_DBP_WATER_TANK_01, ID_DBP_OIL_TANK, ID_DBP_LIVEWELL_TANK,
-	ID_DBP_GREY_TANK,ID_DBP_BLACK_TANK,	ID_DBP_RSA, ID_DBP_START_BATTERY_VOLTS, 
-	ID_DBP_START_BATTERY_AMPS, ID_DBP_HOUSE_BATTERY_VOLTS, ID_DBP_HOUSE_BATTERY_AMPS, 
-	ID_DBP_FUEL_TANK_02, ID_DBP_WATER_TANK_02, ID_DBP_WATER_TANK_03,
-	ID_DBP_FUEL_TANK_GAUGE_01, ID_DBP_FUEL_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_01,
-	ID_DBP_WATER_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_03,ID_DBP_MAIN_ENGINE_FUEL_RATE,
-	ID_DBP_PORT_ENGINE_FUEL_RATE, ID_DBP_STBD_ENGINE_FUEL_RATE,
-	ID_DBP_LAST_ENTRY //this has a reference in one of the routines; defining a "LAST_ENTRY" and setting the reference to it, is one codeline less to change (and find) when adding new instruments :-)
-};
-
-// Retrieve a caption for each instrument
-wxString GetInstrumentCaption(unsigned int id) {
-    switch(id) {
-		case ID_DBP_MAIN_ENGINE_RPM:
-			return _("Main RPM");
-		case ID_DBP_PORT_ENGINE_RPM:
-			return _("Port RPM");
-		case ID_DBP_STBD_ENGINE_RPM:
-			return _("Stbd RPM");
-		case ID_DBP_MAIN_ENGINE_OIL:
-			return _("Main Oil Pressure");
-		case ID_DBP_PORT_ENGINE_OIL:
-			return _("Port Oil Pressure");
-		case ID_DBP_STBD_ENGINE_OIL:
-			return _("Stbd Oil Pressure");
-		case ID_DBP_MAIN_ENGINE_WATER:
-			return _("Main Water Temperature");
-		case ID_DBP_PORT_ENGINE_WATER:
-			return _("Port Water Temperature");
-		case ID_DBP_STBD_ENGINE_WATER:
-			return _("Stbd Water Temperature");
-		case ID_DBP_MAIN_ENGINE_EXHAUST:
-			return _("Main Exhaust Temperature");
-		case ID_DBP_PORT_ENGINE_EXHAUST:
-			return _("Port Exhaust Temperature");
-		case ID_DBP_STBD_ENGINE_EXHAUST:
-			return _("Stbd Exhaust Temperature");
-		case ID_DBP_MAIN_ENGINE_VOLTS:
-			return _("Main Alternator Voltage");
-		case ID_DBP_PORT_ENGINE_VOLTS:
-			return _("Port Alternator Voltage");
-		case ID_DBP_STBD_ENGINE_VOLTS:
-			return _("Stbd Alternator Voltage");
-		case ID_DBP_FUEL_TANK_01:
-		case ID_DBP_FUEL_TANK_GAUGE_01:
-			return _("Fuel 1");
-		case ID_DBP_FUEL_TANK_02:
-		case ID_DBP_FUEL_TANK_GAUGE_02:
-			return _("Fuel 2");
-		case ID_DBP_WATER_TANK_01:
-		case ID_DBP_WATER_TANK_GAUGE_01:
-			return _("Water 1");
-		case ID_DBP_WATER_TANK_02:
-		case ID_DBP_WATER_TANK_GAUGE_02:
-			return _("Water 2");
-		case ID_DBP_WATER_TANK_03:
-		case ID_DBP_WATER_TANK_GAUGE_03:
-			return _("Water 3");
-		case ID_DBP_OIL_TANK:
-			return _("Oil");
-		case ID_DBP_LIVEWELL_TANK:
-			return _("Live Well");
-		case ID_DBP_GREY_TANK:
-			return _("Grey Waste");
-		case ID_DBP_BLACK_TANK:
-			return _("Black Waste");
-		case ID_DBP_RSA:
-			return _("Rudder Angle");
-		case ID_DBP_START_BATTERY_VOLTS:
-			return _("Start Battery Voltage");
-		case ID_DBP_HOUSE_BATTERY_VOLTS:
-			return _("House Battery Voltage");
-        case ID_DBP_START_BATTERY_AMPS:
-			return _("Start Battery Current");
-		case ID_DBP_HOUSE_BATTERY_AMPS:
-			return _("House Battery Current");
-		case ID_DBP_MAIN_ENGINE_FUEL_RATE:
-			return _("Main Fuel Rate");
-		case ID_DBP_PORT_ENGINE_FUEL_RATE:
-			return _("Port Fuel Rate");
-		case ID_DBP_STBD_ENGINE_FUEL_RATE:
-			return _("Stbd Fuel Rate");
-		default:
-			return wxEmptyString;
-    }
-}
-
-// Populate an index, caption and image for each instrument for use in a list control
-void GetListItemForInstrument(wxListItem &item, unsigned int id) {
-    item.SetData(id);
-    item.SetText(GetInstrumentCaption(id));
-   
-	switch(id) {
-		// All the engine dashboard instruments use either the speedometer control (derived from the dial control)
-		// or the rudder control, so display a gauge icon. No need to display a "text" icon 
-		// BUG BUG Find then rename or delete SetImage(0) which probably represents a text label
-        case ID_DBP_MAIN_ENGINE_RPM:
-		case ID_DBP_PORT_ENGINE_RPM:
-		case ID_DBP_STBD_ENGINE_RPM:
-		case ID_DBP_MAIN_ENGINE_OIL:
-		case ID_DBP_PORT_ENGINE_OIL:
-		case ID_DBP_STBD_ENGINE_OIL:
-		case ID_DBP_MAIN_ENGINE_EXHAUST:
-		case ID_DBP_PORT_ENGINE_EXHAUST:
-		case ID_DBP_STBD_ENGINE_EXHAUST:
-		case ID_DBP_MAIN_ENGINE_WATER:
-		case ID_DBP_PORT_ENGINE_WATER:
-		case ID_DBP_STBD_ENGINE_WATER:
-		case ID_DBP_MAIN_ENGINE_VOLTS:
-		case ID_DBP_PORT_ENGINE_VOLTS:
-		case ID_DBP_STBD_ENGINE_VOLTS:
-		case ID_DBP_FUEL_TANK_01:
-		case ID_DBP_FUEL_TANK_02:
-		case ID_DBP_WATER_TANK_01:
-		case ID_DBP_WATER_TANK_02:
-		case ID_DBP_WATER_TANK_03:
-		case ID_DBP_OIL_TANK:
-		case ID_DBP_LIVEWELL_TANK:
-		case ID_DBP_GREY_TANK:
-		case ID_DBP_BLACK_TANK:
-		case ID_DBP_RSA:
-		case ID_DBP_HOUSE_BATTERY_VOLTS:
-		case ID_DBP_START_BATTERY_VOLTS:
-        case ID_DBP_HOUSE_BATTERY_AMPS:
-		case ID_DBP_START_BATTERY_AMPS:
-		case ID_DBP_MAIN_ENGINE_FUEL_RATE:
-		case ID_DBP_PORT_ENGINE_FUEL_RATE:
-		case ID_DBP_STBD_ENGINE_FUEL_RATE:
-			item.SetImage(1);
-			break;
-		case ID_DBP_FUEL_TANK_GAUGE_01:
-		case ID_DBP_FUEL_TANK_GAUGE_02:
-		case ID_DBP_WATER_TANK_GAUGE_01:
-		case ID_DBP_WATER_TANK_GAUGE_02:
-		case ID_DBP_WATER_TANK_GAUGE_03:
-		// BUG BUG Should create a SVG image for a gauge
-			item.SetImage(0);
-			break;
-		default:
-			item.SetImage(0);
-			break;
-    }
-}
-
-// These two functions are used to construct a unique id for each dashboard instance
-
-/// These two function were taken from gpxdocument.cpp
-int GetRandomNumber(int range_min, int range_max) {
-      long u = (long)wxRound(((double)rand() / ((double)(RAND_MAX) + 1) * (range_max - range_min)) + range_min);
-      return (int)u;
-}
-
-// RFC4122 version 4 compliant random UUIDs generator.
-wxString GetUUID(void) {
-      wxString str;
-      struct {
-      int time_low;
-      int time_mid;
-      int time_hi_and_version;
-      int clock_seq_hi_and_rsv;
-      int clock_seq_low;
-      int node_hi;
-      int node_low;
-      } uuid;
-
-      uuid.time_low = GetRandomNumber(0, 2147483647);//FIXME: the max should be set to something like MAXINT32, but it doesn't compile un gcc...
-      uuid.time_mid = GetRandomNumber(0, 65535);
-      uuid.time_hi_and_version = GetRandomNumber(0, 65535);
-      uuid.clock_seq_hi_and_rsv = GetRandomNumber(0, 255);
-      uuid.clock_seq_low = GetRandomNumber(0, 255);
-      uuid.node_hi = GetRandomNumber(0, 65535);
-      uuid.node_low = GetRandomNumber(0, 2147483647);
-
-      // Set the two most significant bits (bits 6 and 7) of the
-      // clock_seq_hi_and_rsv to zero and one, respectively.
-      uuid.clock_seq_hi_and_rsv = (uuid.clock_seq_hi_and_rsv & 0x3F) | 0x80;
-
-      // Set the four most significant bits (bits 12 through 15) of the
-      // time_hi_and_version field to 4 
-      uuid.time_hi_and_version = (uuid.time_hi_and_version & 0x0fff) | 0x4000;
-
-      str.Printf(_T("%08x-%04x-%04x-%02x%02x-%04x%08x"),
-      uuid.time_low,
-      uuid.time_mid,
-      uuid.time_hi_and_version,
-      uuid.clock_seq_hi_and_rsv,
-      uuid.clock_seq_low,
-      uuid.node_hi,
-      uuid.node_low);
-
-      return str;
-}
-
-
-// Constructs a unique id for each dashboard instance
-wxString MakeName() {
-    return _T("ENGINE_DASHBOARD_") + GetUUID();
-}
-
-//---------------------------------------------------------------------------------------------------------
-//
-//          PlugIn initialization and de-init
-//
-//---------------------------------------------------------------------------------------------------------
-
-// Dashboard Constructor
-// BUG BUG Consider renaming the class to engine_dashboard_pi to avoid confusion when programming other dashboard projects
-dashboard_pi::dashboard_pi(void *ppimgr) : opencpn_plugin_118(ppimgr), wxTimer(this) {
-    // Create the PlugIn icons
-    initialize_images();
-}
-
-// Dashboard Destructor
-dashboard_pi::~dashboard_pi(void) {
-    delete _img_engine;
-    delete _img_dashboard;
-    delete _img_dial;
-    delete _img_instrument;
-    delete _img_minus;
-    delete _img_plus;
-}
-
-// Initialize the Dashboard
-int dashboard_pi::Init(void) {
-    // BUG BUG I need to understand localization
-    AddLocaleCatalog(_T("opencpn-engine_dashboard_pi"));
-
-    // BUG BUG Not really used, as plugin only uses version 2 configuration style
-    m_config_version = -1;
-    
-    // Load the fonts
-    g_pFontTitle = new wxFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_ITALIC, wxFONTWEIGHT_NORMAL);
-    g_pFontData = new wxFont(14, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-    g_pFontLabel = new wxFont(8, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-    g_pFontSmall = new wxFont(8, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-
-    // Wire up the OnClose AUI event
-    m_pauimgr = GetFrameAuiManager();
-    m_pauimgr->Connect(wxEVT_AUI_PANE_CLOSE, wxAuiManagerEventHandler(dashboard_pi::OnPaneClose), NULL, this);
-
-    // Get a pointer to the opencpn configuration object
-    m_pconfig = GetOCPNConfigObject();
-
-    // And load the configuration items
-    LoadConfig();
-
-    // Scaleable Vector Graphics (SVG) icons are stored in the following path.
-	iconFolder = GetPluginDataDir(PLUGIN_PACKAGE_NAME) + wxFileName::GetPathSeparator() + _T("data") + wxFileName::GetPathSeparator();
-    
-    // Load my own plugin icons (refer to the data directory in the repository)
-	wxString normalIcon = iconFolder + _T("engine-dashboard-colour.svg");
-	wxString toggledIcon = iconFolder + _T("engine-dashboard-bw.svg");
-	wxString rolloverIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
+Dashboard::Dashboard(void *ppimgr) : wxTimer(this), opencpn_plugin_120(ppimgr) {
      
-    // For journeyman styles, we prefer the built-in raster icons which match the rest of the toolbar.
-    // Is this the "jigsaw icon" ?? In anycase load a monochrome version of my icon
-    if (GetActiveStyleName().Lower() != _T("traditional")) {
-	    normalIcon = iconFolder + _T("engine-dashboard-bw.svg");
-	    toggledIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
-	    rolloverIcon = iconFolder + _T("engine-dashboard-bw-rollover.svg");
-     }
+  // Uses SVG icons instead of PNG files
+  g_pluginFolder = GetPluginDataDir(PKG_NAME) + wxFileName::GetPathSeparator() + "data" + wxFileName::GetPathSeparator();
+  // The plugin icon
+  g_pluginBitmap = GetBitmapFromSVGFile(g_pluginFolder + "engine-dashboard-colour.svg", 32, 32);
 
-    // Add toolbar icon (in SVG format)
-    m_toolbar_item_id = InsertPlugInToolSVG(_T(""), normalIcon, rolloverIcon, toggledIcon, wxITEM_CHECK,
-	_(PLUGIN_COMMON_NAME), _T(""), NULL, DASHBOARD_TOOL_POSITION, 0, this);
-    
-    // Having Loaded the config, then display each of the dashboards
-    ApplyConfig();
+  // Existing icons used in preferences dialog
+  g_dashboardBitmap = GetBitmapFromSVGFile(g_pluginFolder + "dashboard.svg", 32, 32);
+  g_dialBitmap = GetBitmapFromSVGFile(g_pluginFolder + "dial.svg", 16, 16);
+  g_instrumentBitmap = GetBitmapFromSVGFile(g_pluginFolder + "instrument.svg", 16, 16);
+  g_minusBitmap = GetBitmapFromSVGFile(g_pluginFolder + "minus.svg", 16, 16);
+  g_plusBitmap = GetBitmapFromSVGFile(g_pluginFolder + "plus.svg", 16, 16);
 
-    // If we loaded a version 1 configuration, convert now to version 2, unlikely to occur for this engine dashboard
-	// BUG BUG Consider removing unused code
-    if(m_config_version == 1) {
-        SaveConfig();
-    }
-
-	// initialize NMEA 2000 NavMsg listeners
-
-	// PGN 127488 Engine Parameters Rapid Update
-	wxDEFINE_EVENT(EVT_N2K_127488, ObservedEvt);
-	NMEA2000Id id_127488 = NMEA2000Id(127488);
-	listener_127488 = std::move(GetListener(id_127488, EVT_N2K_127488, this));
-	Bind(EVT_N2K_127488, [&](ObservedEvt ev) {
-		HandleN2K_127488(ev);
-	});
-
-	// PGN 127489 Engine Parameters Dynamic
-	wxDEFINE_EVENT(EVT_N2K_127489, ObservedEvt);
-	NMEA2000Id id_127489 = NMEA2000Id(127489);
-	listener_127489 = std::move(GetListener(id_127489, EVT_N2K_127489, this));
-	Bind(EVT_N2K_127489, [&](ObservedEvt ev) {
-		HandleN2K_127489(ev);
-	});
-
-	// PGN 127505 Fluid Levels
-	wxDEFINE_EVENT(EVT_N2K_127505, ObservedEvt);
-	NMEA2000Id id_127505 = NMEA2000Id(127505);
-	listener_127505 = std::move(GetListener(id_127505, EVT_N2K_127505, this));
-	Bind(EVT_N2K_127505, [&](ObservedEvt ev) {
-		HandleN2K_127505(ev);
-	});
-
-	// PGN 127508 Battery Status
-	wxDEFINE_EVENT(EVT_N2K_127508, ObservedEvt);
-	NMEA2000Id id_127508 = NMEA2000Id(127508);
-	listener_127508 = std::move(GetListener(id_127508, EVT_N2K_127508, this));
-	Bind(EVT_N2K_127508, [&](ObservedEvt ev) {
-		HandleN2K_127508(ev);
-	});
-
-	// PGN 127245 Rudder Angle
-	wxDEFINE_EVENT(EVT_N2K_127245, ObservedEvt);
-	NMEA2000Id id_127245 = NMEA2000Id(127245);
-	listener_127245 = std::move(GetListener(id_127245, EVT_N2K_127245, this));
-	Bind(EVT_N2K_127245, [&](ObservedEvt ev) {
-		HandleN2K_127245(ev);
-	});
-
-	// Initialize NMEA 183 Listeners
-	// $--XDR Transducers
-	wxDEFINE_EVENT(EVT_183_XDR, ObservedEvt);
-	NMEA0183Id id_xdr = NMEA0183Id("XDR");
-	listener_xdr = std::move(GetListener(id_xdr, EVT_183_XDR, this));
-	Bind(EVT_183_XDR, [&](ObservedEvt ev) {
-		HandleXDR(ev);
-	});
-
-	// $--RPM
-	wxDEFINE_EVENT(EVT_183_RPM, ObservedEvt);
-	NMEA0183Id id_rpm = NMEA0183Id("RPM");
-	listener_rpm = std::move(GetListener(id_rpm, EVT_183_RPM, this));
-	Bind(EVT_183_RPM, [&](ObservedEvt ev) {
-		HandleRPM(ev);
-	});
-
-	// $--RSA
-	wxDEFINE_EVENT(EVT_183_RSA, ObservedEvt);
-	NMEA0183Id id_rsa = NMEA0183Id("RSA");
-	listener_rsa = std::move(GetListener(id_rsa, EVT_183_RSA, this));
-	Bind(EVT_183_RSA, [&](ObservedEvt ev) {
-		HandleRSA(ev);
-	});
-
-	// Initialize SignalK Listeners
-	// self.vessels.propulsion
-	wxDEFINE_EVENT(EVT_SIGNALK, ObservedEvt);
-	SignalkId id_signalk = SignalkId("self");
-	listener_signalk = std::move(GetListener(id_signalk, EVT_SIGNALK, this));
-	Bind(EVT_SIGNALK, [&](ObservedEvt ev) {
-		HandleSignalK(ev);
-	});
-
-    // Initialize the watchdog timers
-	// Engine watchdog zeros tachometer, oil pressure & engine temperature if no RPM's received
-	// Tank level watchdog zeroes tanks if no tank level data is received
-	engineWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
-	tankLevelWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
-	Start(1000, wxTIMER_CONTINUOUS);
-
-	// Reduced from the original dashboard requests
-    return (WANTS_TOOLBAR_CALLBACK | INSTALLS_TOOLBAR_TOOL | WANTS_PREFERENCES | WANTS_CONFIG | WANTS_NMEA_SENTENCES | USES_AUI_MANAGER | WANTS_PLUGIN_MESSAGING | WANTS_NMEA_EVENTS);
 }
 
-bool dashboard_pi::DeInit(void) {
-    // Save the current configuration
+Dashboard::~Dashboard(void) {
+}
+
+int Dashboard::Init(void) {
+	AddLocaleCatalog(_T("opencpn-engine_dashboard_pi"));
+
+  
+  g_pFontTitle = new wxFontData();
+  g_pFontTitle->SetChosenFont(
+      wxFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_ITALIC, wxFONTWEIGHT_NORMAL));
+
+  g_pFontData = new wxFontData();
+  g_pFontData->SetChosenFont(
+      wxFont(14, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+
+  g_pFontLabel = new wxFontData();
+  g_pFontLabel->SetChosenFont(
+      wxFont(8, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+
+  g_pFontSmall = new wxFontData();
+  g_pFontSmall->SetChosenFont(
+      wxFont(8, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+
+  g_pUSFontTitle = &g_USFontTitle;
+  g_pUSFontData = &g_USFontData;
+  g_pUSFontLabel = &g_USFontLabel;
+  g_pUSFontSmall = &g_USFontSmall;
+
+  // Initialize wxWidgets Advanced User Interface (wxAUI)
+  m_pauimgr = GetFrameAuiManager();
+  m_pauimgr->Connect(wxEVT_AUI_PANE_CLOSE, wxAuiManagerEventHandler(Dashboard::OnPaneClose), NULL, this);
+
+  // Get a pointer to the opencpn configuration object
+  m_pconfig = GetOCPNConfigObject();
+
+  // And load the configuration items
+  LoadConfig();
+
+  // Initialize the dashboard toolbar button
+  wxString normalIcon = g_pluginFolder + "engine-dashboard-normal.svg";
+  wxString toggledIcon = g_pluginFolder + "engine-dashboard-toggled.svg";
+  wxString rolloverIcon = g_pluginFolder + "engine-dashboard-rollover.svg";
+
+  m_toolbar_item_id = InsertPlugInToolSVG("Engine Dashboard", normalIcon,
+      rolloverIcon, toggledIcon, wxITEM_CHECK, "Engine Dashboard", "Engine Dashboard - refactored", NULL, DASHBOARD_TOOL_POSITION, 0, this);
+
+  ApplyConfig();
+
+  //  If we loaded a version 1 config setup, convert now to version 2
+  if (m_config_version == 1) {
     SaveConfig();
+  }
 
-    // Is watchdog timer started?
-    if (IsRunning()) {
-	    Stop(); 
+ // Initialize listeners
+ // PGN 127488 Engine Parameters Rapid Update
+  wxDEFINE_EVENT(EVT_N2K_127488, ObservedEvt);
+  NMEA2000Id id_127488 = NMEA2000Id(127488);
+  listener_127488 = std::move(GetListener(id_127488, EVT_N2K_127488, this));
+  Bind(EVT_N2K_127488, [&](ObservedEvt ev) {
+	  HandleN2K_127488(ev);
+	  });
+
+  // PGN 127489 Engine Parameters Dynamic
+  wxDEFINE_EVENT(EVT_N2K_127489, ObservedEvt);
+  NMEA2000Id id_127489 = NMEA2000Id(127489);
+  listener_127489 = std::move(GetListener(id_127489, EVT_N2K_127489, this));
+  Bind(EVT_N2K_127489, [&](ObservedEvt ev) {
+	  HandleN2K_127489(ev);
+	  });
+
+  // PGN 127505 Fluid Levels
+  wxDEFINE_EVENT(EVT_N2K_127505, ObservedEvt);
+  NMEA2000Id id_127505 = NMEA2000Id(127505);
+  listener_127505 = std::move(GetListener(id_127505, EVT_N2K_127505, this));
+  Bind(EVT_N2K_127505, [&](ObservedEvt ev) {
+	  HandleN2K_127505(ev);
+	  });
+
+  // PGN 127506 DC Detailed Status
+  wxDEFINE_EVENT(EVT_N2K_127506, ObservedEvt);
+  NMEA2000Id id_127506 = NMEA2000Id(127506);
+  listener_127506 = std::move(GetListener(id_127506, EVT_N2K_127506, this));
+  Bind(EVT_N2K_127506, [&](ObservedEvt ev) {
+	  HandleN2K_127506(ev);
+	  });
+
+  // PGN 127508 Battery Status
+  wxDEFINE_EVENT(EVT_N2K_127508, ObservedEvt);
+  NMEA2000Id id_127508 = NMEA2000Id(127508);
+  listener_127508 = std::move(GetListener(id_127508, EVT_N2K_127508, this));
+  Bind(EVT_N2K_127508, [&](ObservedEvt ev) {
+	  HandleN2K_127508(ev);
+	  });
+
+  // PGN 127245 Rudder Angle
+  wxDEFINE_EVENT(EVT_N2K_127245, ObservedEvt);
+  NMEA2000Id id_127245 = NMEA2000Id(127245);
+  listener_127245 = std::move(GetListener(id_127245, EVT_N2K_127245, this));
+  Bind(EVT_N2K_127245, [&](ObservedEvt ev) {
+	  HandleN2K_127245(ev);
+	  });
+
+  // Initialize NMEA 183 Listeners
+  // $--XDR Transducers
+  wxDEFINE_EVENT(EVT_183_XDR, ObservedEvt);
+  NMEA0183Id id_xdr = NMEA0183Id("XDR");
+  listener_xdr = std::move(GetListener(id_xdr, EVT_183_XDR, this));
+  Bind(EVT_183_XDR, [&](ObservedEvt ev) {
+	  HandleXDR(ev);
+	  });
+
+  // $--RPM
+  wxDEFINE_EVENT(EVT_183_RPM, ObservedEvt);
+  NMEA0183Id id_rpm = NMEA0183Id("RPM");
+  listener_rpm = std::move(GetListener(id_rpm, EVT_183_RPM, this));
+  Bind(EVT_183_RPM, [&](ObservedEvt ev) {
+	  HandleRPM(ev);
+	  });
+
+  // $--RSA
+  wxDEFINE_EVENT(EVT_183_RSA, ObservedEvt);
+  NMEA0183Id id_rsa = NMEA0183Id("RSA");
+  listener_rsa = std::move(GetListener(id_rsa, EVT_183_RSA, this));
+  Bind(EVT_183_RSA, [&](ObservedEvt ev) {
+	  HandleRSA(ev);
+	  });
+
+  // Initialize SignalK Listeners
+  // self.vessels.propulsion
+  wxDEFINE_EVENT(EVT_SIGNALK, ObservedEvt);
+  SignalkId id_signalk = SignalkId("self");
+  listener_signalk = std::move(GetListener(id_signalk, EVT_SIGNALK, this));
+  Bind(EVT_SIGNALK, [&](ObservedEvt ev) {
+	  HandleSignalK(ev);
+	  });
+
+  // Initialize the watchdog timers
+  // Engine watchdog zeros tachometer, oil pressure & engine temperature if no RPM's received
+  // Tank level watchdog zeroes tanks if no tank level data is received
+  m_engineWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
+  m_tankLevelWatchDog = wxDateTime::Now() - wxTimeSpan::Seconds(5);
+  
+  Start(1000, wxTIMER_CONTINUOUS);
+
+  return ( WANTS_TOOLBAR_CALLBACK | INSTALLS_TOOLBAR_TOOL | WANTS_CONFIG |
+          WANTS_PREFERENCES  | USES_AUI_MANAGER);
+}
+
+bool Dashboard::DeInit(void) {
+  SaveConfig();
+  // If timer is started, stop it
+  if (IsRunning())  {
+    Stop(); 
+  }
+
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindow *dashboard_window =
+        m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
+    if (dashboard_window) {
+      m_pauimgr->DetachPane(dashboard_window);
+      dashboard_window->Close();
+      dashboard_window->Destroy();
+      m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow = NULL;
     }
+  }
 
-    // This appears to close each dashboard instance
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
-        if (dashboard_window) {
-            m_pauimgr->DetachPane(dashboard_window);
-            dashboard_window->Close();
-            dashboard_window->Destroy();
-            m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow = NULL;
-        }
-    }
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindowContainer *pdwc = m_ArrayOfDashboardWindow.Item(i);
+    delete pdwc;
+  }
 
-    // And this appears to close each dashboard container
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindowContainer *pdwc = m_ArrayOfDashboardWindow.Item(i);
-        delete pdwc;
-    }
-
-    // Unload the fonts
-    delete g_pFontTitle;
-    delete g_pFontData;
-    delete g_pFontLabel;
-    delete g_pFontSmall;
-
-    return true;
+  return true;
 }
 
-// Called for each timer tick, ensures valid data and refreshes each display
-void dashboard_pi::Notify()
-{
-	// Zero the engine instruments (including engine hours)
-    if (wxDateTime::Now() > (engineWatchDog + wxTimeSpan::Seconds(5))) {
-		for (int i = OCPN_DBP_STC_MAIN_ENGINE_RPM; i <= OCPN_DBP_STC_STBD_ENGINE_HOURS ; i++) {
-			SendSentenceToAllInstruments((DASH_CAP)i,0.0f, wxEmptyString);
-		}
-		// Fuel Rate Gauges
-		SendSentenceToAllInstruments((DASH_CAP)OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, 0.0f, wxEmptyString);
-		SendSentenceToAllInstruments((DASH_CAP)OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, 0.0f, wxEmptyString);
-		SendSentenceToAllInstruments((DASH_CAP)OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, 0.0f, wxEmptyString);
-    }
+// Invoked by the timer
+void Dashboard::Notify() {
+  
+  //  Manage the watchdogs
+  // BUG BUG Consider using OCPN_DBP_STC as the for loop constraints
+  if (wxDateTime::Now() > (m_engineWatchDog + wxTimeSpan::Seconds(5))) {
+	  // Zero the engine instruments
+	  // We go from zero to ID_DBP_FUEL_TANK_01 + 3, because there are three additional values
+	  // in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
+	  // do not have their own gauge, but populate the engine rpm gauges
+	  for (int i = 0; i < ID_DBP_FUEL_TANK_01 + 3; i++) {
+		  SendSentenceToAllInstruments((DASH_CAP)i, 0.0f, "");
+	  }
+  }
 
-	// Zero the tank instruments
-	if (wxDateTime::Now() > (tankLevelWatchDog + wxTimeSpan::Seconds(5))) {
-		for (int i = OCPN_DBP_STC_TANK_LEVEL_FUEL_01; i <= OCPN_DBP_STC_TANK_LEVEL_BLACK; i++) {
-			SendSentenceToAllInstruments((DASH_CAP)i, 0.0f, wxEmptyString);
-		}
-		for (int i = OCPN_DBP_STC_TANK_LEVEL_FUEL_02; i <= OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03; i++) {
-			SendSentenceToAllInstruments((DASH_CAP)i, 0.0f, wxEmptyString);
-		}
-	}
+  if (wxDateTime::Now() > (m_tankLevelWatchDog + wxTimeSpan::Seconds(5))) {
+	  // Zero the tank instruments
+	  // We go from ID_DBP_FUEL_TANK_01 + 3 to IDP_LAST_ENTRY + 3, 
+	  // because there are three additional values
+	  // in OCPN_DBP_STC_... (instrument.h) for the engine hours, which 
+	  // do not have their own gauge, but populate the engine rpm gauges
+	  for (int i = ID_DBP_FUEL_TANK_01 + 3; i < ID_DBP_LAST_ENTRY + 3; i++) {
+		  SendSentenceToAllInstruments((DASH_CAP)i, 0.0f, "");
+	  }
+  }
 
-    // Force a repaint of each instrument
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-	    DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
-	    if (dashboard_window) {
-	        dashboard_window->Refresh();
-	    }
-    }
+  // Force a repaint of all the instruments
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+	  DashboardWindow* dashboard_window =
+		  m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
+	  if (dashboard_window) {
+		  dashboard_window->Refresh();
+#ifdef __OCPN__ANDROID__
+		  wxWindowList list = dashboard_window->GetChildren();
+		  wxWindowListNode* node = list.GetFirst();
+		  for (size_t i = 0; i < list.GetCount(); i++) {
+			  wxWindow* win = node->GetData();
+			  // qDebug() << "Refresh Dash child:" << i;
+			  win->Refresh();
+			  node = node->GetNext();
+		  }
+#endif
+	  }
+  }
 }
 
-int dashboard_pi::GetAPIVersionMajor() {
-	return OCPN_API_VERSION_MAJOR;
+// OpenCPN Mandatory plugin functions
+int Dashboard::GetAPIVersionMajor() { 
+    return atoi(API_VERSION);
 }
 
-int dashboard_pi::GetAPIVersionMinor() {
-	return OCPN_API_VERSION_MINOR;
+int Dashboard::GetAPIVersionMinor() { 
+    std::string v(API_VERSION);
+    size_t dotpos = v.find('.');
+    return atoi(v.substr(dotpos + 1).c_str());
 }
 
-int dashboard_pi::GetPlugInVersionMajor() {
-	return PLUGIN_VERSION_MAJOR;
+int Dashboard::GetPlugInVersionMajor() { 
+    return PLUGIN_VERSION_MAJOR;
 }
 
-int dashboard_pi::GetPlugInVersionMinor() {
-	return PLUGIN_VERSION_MINOR;
+int Dashboard::GetPlugInVersionMinor() { 
+    return PLUGIN_VERSION_MINOR;
 }
 
-// The plugin bitmap is loaded by the call to InitializeImages in icons.cpp
-// Use png2wx.pl perl script to generate the binary data used in icons.cpp
-wxBitmap *dashboard_pi::GetPlugInBitmap() {
-    return _img_engine;
+wxBitmap *Dashboard::GetPlugInBitmap() { 
+    return &g_pluginBitmap; 
 }
 
-wxString dashboard_pi::GetCommonName() {
-    return _(PLUGIN_COMMON_NAME);
+wxString Dashboard::GetCommonName() { 
+    return PLUGIN_API_NAME;
 }
 
-wxString dashboard_pi::GetShortDescription() {
-    return _(PLUGIN_SHORT_DESCRIPTION);
+wxString Dashboard::GetShortDescription() {
+    return PKG_SUMMARY;
 }
 
-wxString dashboard_pi::GetLongDescription() {
-    return _(PLUGIN_LONG_DESCRIPTION);
+wxString Dashboard::GetLongDescription() {
+    return wxString(PKG_DESCRIPTION);
 }
 
 // a few conversion functions
-double dashboard_pi::Celsius2Fahrenheit(double temperature) {
+double Dashboard::Celsius2Fahrenheit(double temperature) {
 	return (temperature * 9 / 5) + 32;
 }
 
-double dashboard_pi::Fahrenheit2Celsius(double temperature) {
+double Dashboard::Fahrenheit2Celsius(double temperature) {
 	return (temperature - 32) * 5 / 9;
 }
 
-double dashboard_pi::Pascal2Psi(double pressure) {
+double Dashboard::Pascal2Psi(double pressure) {
 	return pressure * 0.000145f;
 }
 
-double dashboard_pi::Psi2Pascal(double pressure) {
+double Dashboard::Psi2Pascal(double pressure) {
 	return pressure * 6894.745f;
 }
 
-// Sends the data value from the parsed NMEA sentence to each gauge
-void dashboard_pi::SendSentenceToAllInstruments(DASH_CAP st, double value, wxString unit) {
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
-		if (dashboard_window) {
-			dashboard_window->SendSentenceToAllInstruments(st, value, unit);
-		}
-    }
+// Update all of the displayed instruments
+void Dashboard::SendSentenceToAllInstruments(DASH_CAP cap_flag, double value,
+                                                wxString unit) {
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindow *dashboard_window =
+        m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
+    if (dashboard_window)
+      dashboard_window->SendSentenceToAllInstruments(cap_flag, value, unit);
+  }
 }
 
-// One of those FFS moments
-// Have to know the type of the value before retrieving.
-double dashboard_pi::GetJsonDouble(wxJSONValue &value) {
-	double d_ret;
-	if (value.IsDouble()) {
-		return d_ret = value.AsDouble();
+// Receive SignalK update using observer/listener model
+void Dashboard::HandleSignalK(ObservedEvt ev) {
+	// OpenCPN "packages" up the SignalK update, including the self context
+	auto payload = GetSignalkPayload(ev);
+	const auto signalKMessage = *std::static_pointer_cast<const wxJSONValue>(payload);
+	auto errorCount = signalKMessage.ItemAt("ErrorCount");
+	if (errorCount.AsInt() > 0) {
+		wxLogMessage("Demo Plugin, SignalK Error Count: %d", errorCount.AsInt());
+		return;
 	}
-	else if (value.IsInt()) {
-		int i_ret = value.AsInt();
-		return d_ret = i_ret;
-	}
-	else {
-		return nan("");
-	}
-}
 
-// Receive & handle SignalK derived data
-void dashboard_pi::SetPluginMessage(wxString& message_id, wxString& message_body) {
-	if (message_id == _T("OCPN_CORE_SIGNALK")) {
-		
-		if (jsonReader.Parse(message_body, &root) > 0) {
-			wxLogMessage("Engine Dashboard, JSON Error in following");
-			wxLogMessage("%s", message_body);
-			wxArrayString jsonErrors = jsonReader.GetErrors();
-			for (auto it : jsonErrors) {
-				wxLogMessage(it);
-			}
-			return;
-		}
+	// Retrieve the Self Context and the SignalK Data
+	wxJSONValue self = signalKMessage.ItemAt("ContextSelf");
+	wxJSONValue root = signalKMessage.ItemAt("Data");
 
-		if (root.HasMember("self")) {
-			if (root["self"].AsString().StartsWith(_T("vessels.")))
-				self = (root["self"].AsString());  // for java server, and OpenPlotter node.js server 1.20
-			else
-				self = _T("vessels.") + (root["self"].AsString()); // for Node.js server
-		}
-
-		if (root.HasMember("context") && root["context"].IsString()) {
-			auto context = root["context"].AsString();
-			if (context != self) {
-				return;
-			}
-		}
-
-		if (root.HasMember("updates") && root["updates"].IsArray()) {
-			wxJSONValue &updates = root["updates"];
-			for (int i = 0; i < updates.Size(); ++i) {
-				HandleSKUpdate(updates[i]);
+	// Only interested in displaying data for our own vessel
+	if (root.HasMember("context") && root["context"].IsString()) {
+		wxString context = root["context"].AsString();
+		if (context == self.AsString()) {
+			// Parse the data
+			if (root.HasMember("updates") && root["updates"].IsArray()) {
+				wxJSONValue updates = root["updates"];
+				for (int i = 0; i < updates.Size(); i++) {
+					ParseSignalK(updates[i]);
+				}
 			}
 		}
 	}
 }
 
-void dashboard_pi::HandleSKUpdate(wxJSONValue &update) {
-	if (update.HasMember("values")	&& update["values"].IsArray()) {
+// Parse SignalK updates
+void Dashboard::ParseSignalK(wxJSONValue & update) {
+	if (update.HasMember("values") && update["values"].IsArray()) {
+		for (int i = 0; i < update["values"].Size(); i++) {
+			wxJSONValue& item = update["values"][i];
+			if (item.HasMember("path") && item.HasMember("value")) {
+				const wxString& update_path = item["path"].AsString();
+				wxJSONValue& value = item["value"];
+
+				if (update_path.StartsWith("propulsion")) {
+					m_engineWatchDog = wxDateTime::Now();
+				}
+
+				// Units in revolutions per second
+				if ((update_path == _T("propulsion.port.revolutions")) && (!g_dualEngine)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, value.AsDouble() * 60, "RPM");
+				}
+
+				if ((update_path == _T("propulsion.port.revolutions")) && (g_dualEngine)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, value.AsDouble() * 60, "RPM");
+				}
+
+				if (update_path == _T("propulsion.starboard.revolutions")) {
+					// dualEngine = TRUE;
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, value.AsDouble() * 60, "RPM");
+				}
+
+				// Units in volts
+				if ((update_path == _T("propulsion.port.alternatorVoltage")) && (!g_dualEngine)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, value.AsDouble(), "Volts");
+				}
+
+				if ((update_path == _T("propulsion.port.alternatorVoltage")) && (g_dualEngine)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, value.AsDouble(), "Volts");
+				}
+
+				if (update_path == _T("propulsion.starboard.alternatorVoltage")) {
+					// dualEngine = TRUE;
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, value.AsDouble(), "Volts");
+				}
+
+				if (g_pressureUnit == PRESSURE_BAR) {
+					// Units are in Pascals. 100000 Pascals = 1 Bar
+					// No idea why current version of SignalK encodes oil pressure as an Int ?
+					if ((update_path == _T("propulsion.port.oilPressure")) && (!g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, value.AsInt() * 1e-5, "Bar");
+					}
+
+					if ((update_path == _T("propulsion.port.oilPressure")) && (g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, value.AsInt() * 1e-5, "Bar");
+					}
+
+					if (update_path == _T("propulsion.starboard.oilPressure")) {
+						// dualEngine = TRUE;
+						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, value.AsInt() * 1e-5, "Bar");
+					}
+				}
+
+				else if (g_pressureUnit == PRESSURE_PSI) {
+					if ((update_path == _T("propulsion.port.oilPressure")) && (!g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(value.AsDouble()), "Psi");
+					}
+
+					if ((update_path == _T("propulsion.port.oilPressure")) && (g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(value.AsDouble()), "Psi");
+					}
+
+					if (update_path == _T("propulsion.starboard.oilPressure")) {
+						// dualEngine = TRUE;
+						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(value.AsDouble()), "Psi");
+					}
+				}
+
+				if (g_temperatureUnit == TEMPERATURE_CELSIUS) {
+					// Units are in Kelvin
+					if ((update_path == _T("propulsion.port.temperature")) && (!g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN(value.AsDouble()), _T("\u00B0 C"));
+					}
+
+					if ((update_path == _T("propulsion.port.temperature")) && (g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN(value.AsDouble()), _T("\u00B0 C"));
+					}
+
+					if (update_path == _T("propulsion.starboard.temperature")) {
+						// dualEngine = TRUE;
+						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN(value.AsDouble()), _T("\u00B0 C"));
+					}
+
+					if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, CONVERT_KELVIN(value.AsDouble()), _T("\u00B0 C"));
+					}
+
+					if ((update_path == _T("propulsion.port.exhaustTemperature")) && (g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, CONVERT_KELVIN(value.AsDouble()), _T("\u00B0 C"));
+					}
+
+					if (update_path == _T("propulsion.starboard.exhaustTemperature")) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, CONVERT_KELVIN(value.AsDouble()), _T("\u00B0 C"));
+					}
+				}
+				else if (g_temperatureUnit == TEMPERATURE_FAHRENHEIT) {
+					if ((update_path == _T("propulsion.port.temperature")) && (!g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(value.AsDouble())), _T("\u00B0 F"));
+					}
+
+					if ((update_path == _T("propulsion.port.temperature")) && (g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(value.AsDouble())), _T("\u00B0 F"));
+					}
+
+					if (update_path == _T("propulsion.starboard.temperature")) {
+						// dualEngine = TRUE;
+						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(value.AsDouble())), _T("\u00B0 F"));
+					}
+
+					if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(value.AsDouble())), _T("\u00B0 F"));
+					}
+
+					if ((update_path == _T("propulsion.port.exhaustTemperature")) && (g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(value.AsDouble())), _T("\u00B0 F"));
+					}
+
+					if (update_path == _T("propulsion.starboard.exhaustTemperature")) {
+						// dualEngine = TRUE;
+						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(value.AsDouble())), _T("\u00B0 F"));
+					}
+				}
+				// Units are in seconds
+				if ((update_path == _T("propulsion.port.runTime")) && (!g_dualEngine)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
+				}
+
+				if ((update_path == _T("propulsion.port.runTime")) && (g_dualEngine)) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
+				}
+
+				if (update_path == _T("propulsion.starboard.runTime")) {
+					// dualEngine = TRUE;
+					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
+				}
+
+				if (update_path == _T("electrical.batteries.0.voltage")) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_VOLTS, value.AsDouble(), "Volts");
+				}
+
+				if (update_path == _T("electrical.batteries.0.current")) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_AMPS, value.AsDouble(), "Amps");
+				}
+
+				if (update_path == _T("electrical.batteries.1.voltage")) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, value.AsDouble(), "Volts");
+				}
+
+				if (update_path == _T("electrical.batteries.1.current")) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, value.AsDouble(), "Amps");
+				}
+
+				if (update_path == _T("electrical.batteries.0.capacity.stateOfCharge")) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_SOC, value.AsDouble(), "%");
+				}
+
+				if (update_path == _T("electrical.batteries.0.capacity.remaining")) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_HOURS, value.AsDouble(), "Hours");
+				}
+
+				if (update_path == _T("electrical.batteries.1.capacity.stateOfCharge")) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_SOC, value.AsDouble(), "%");
+				}
+
+				if (update_path == _T("electrical.batteries.1.capacity.remaining")) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_HOURS, value.AsDouble(), "Hours");
+				}
+
+				if (update_path.StartsWith(_T("steering.rudderAngle"))) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, RADIANS_TO_DEGREES(value.AsDouble()), _T("\u00B0"));
+				}
+
+				// Engine Warning state = "alarm" or "normal"
+				if (update_path.StartsWith("notifications.propulsion", NULL)) {
+					// Status One Alarm conditions
+					// Main Engine
+					// Bit 0
+					if ((update_path == "notifications.propulsion.port.checkEngine") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 1, wxEmptyString);
+						}
+					}
+					// Bit 1
+					if ((update_path == "notifications.propulsion.port.overTemperature") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 2, wxEmptyString);
+						}
+					}
+					// Bit 2
+					if ((update_path == "notifications.propulsion.port.lowOilPressure") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 4, wxEmptyString);
+						}
+					}
+					// Bit 3
+					if ((update_path == "notifications.propulsion.port.lowOilLevel") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 8, wxEmptyString);
+						}
+					}
+					// Bit 4
+					if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 16, wxEmptyString);
+						}
+					}
+					// Bit 5
+					if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 32, wxEmptyString);
+						}
+					}
+					// Bit 6
+					if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 64, wxEmptyString);
+						}
+					}
+					// Bit 7
+					if ((update_path == "notifications.propulsion.port.waterFlow") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 128, wxEmptyString);
+						}
+					}
+					// Bit 8
+					if ((update_path == "notifications.propulsion.port.waterInFuel") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 256, wxEmptyString);
+						}
+					}
+					// Bit 9
+					if ((update_path == "notifications.propulsion.port.chargeIndicator") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 512, wxEmptyString);
+						}
+					}
+					// Bit 10
+					if ((update_path == "notifications.propulsion.port.preheatIndicator") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 1024, wxEmptyString);
+						}
+					}
+					// Bit 11
+					if ((update_path == "notifications.propulsion.port.highBoostPressure") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 2048, wxEmptyString);
+						}
+					}
+					// Bit 12
+					if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 4096, wxEmptyString);
+						}
+					}
+					// Bit 13
+					if ((update_path == "notifications.propulsion.port.eGRSystem") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 8192, wxEmptyString);
+						}
+					}
+					// Bit 14
+					if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 16384, wxEmptyString);
+						}
+					}
+					//Bit 15
+					if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (!g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 32768, wxEmptyString);
+						}
+					}
+					// Port Engine
+					// Bit 0
+					if ((update_path == "notifications.propulsion.port.checkEngine") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 1, wxEmptyString);
+						}
+					}
+					// Bit 1
+					if ((update_path == "notifications.propulsion.port.overTemperature") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 2, wxEmptyString);
+						}
+					}
+					// Bit 2
+					if ((update_path == "notifications.propulsion.port.lowOilPressure") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 4, wxEmptyString);
+						}
+					}
+					// Bit 3
+					if ((update_path == "notifications.propulsion.port.lowOilLevel") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 8, wxEmptyString);
+						}
+					}
+					// Bit 4
+					if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 16, wxEmptyString);
+						}
+					}
+					// Bit 5
+					if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 32, wxEmptyString);
+						}
+					}
+					// Bit 6
+					if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 64, wxEmptyString);
+						}
+					}
+					// Bit 7
+					if ((update_path == "notifications.propulsion.port.waterFlow") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 128, wxEmptyString);
+						}
+					}
+					// Bit 8
+					if ((update_path == "notifications.propulsion.port.waterInFuel") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 256, wxEmptyString);
+						}
+					}
+					// Bit 9
+					if ((update_path == "notifications.propulsion.port.chargeIndicator") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 512, wxEmptyString);
+						}
+					}
+					// Bit 10
+					if ((update_path == "notifications.propulsion.port.preheatIndicator") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 1024, wxEmptyString);
+						}
+					}
+					// Bit 11
+					if ((update_path == "notifications.propulsion.port.highBoostPressure") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 2048, wxEmptyString);
+						}
+					}
+					// Bit 12
+					if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 4096, wxEmptyString);
+						}
+					}
+					// Bit 13
+					if ((update_path == "notifications.propulsion.port.eGRSystem") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 8192, wxEmptyString);
+						}
+					}
+					// Bit 14
+					if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 16384, wxEmptyString);
+						}
+					}
+					//Bit 15
+					if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (g_dualEngine)) {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 32768, wxEmptyString);
+						}
+					}
+
+					// Starboard Engine
+					// Bit 0
+					if (update_path == "notifications.propulsion.starboard.checkEngine") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 1, wxEmptyString);
+						}
+					}
+					// Bit 1
+					if (update_path == "notifications.propulsion.starboard.overTemperature") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 2, wxEmptyString);
+						}
+					}
+					// Bit 2
+					if (update_path == "notifications.propulsion.starboard.lowOilPressure") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 4, wxEmptyString);
+						}
+					}
+					// Bit 3
+					if (update_path == "notifications.propulsion.starboard.lowOilLevel") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 8, wxEmptyString);
+						}
+					}
+					// Bit 4
+					if (update_path == "notifications.propulsion.starboard.lowFuelPressure") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 16, wxEmptyString);
+						}
+					}
+					// Bit 5
+					if (update_path == "notifications.propulsion.starboard.lowSystemVoltage") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 32, wxEmptyString);
+						}
+					}
+					// Bit 6
+					if (update_path == "notifications.propulsion.starboard.lowCoolantLevel") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 64, wxEmptyString);
+						}
+					}
+					// Bit 7
+					if (update_path == "notifications.propulsion.starboard.waterFlow") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 128, wxEmptyString);
+						}
+					}
+					// Bit 8
+					if (update_path == "notifications.propulsion.starboard.waterInFuel") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 256, wxEmptyString);
+						}
+					}
+					// Bit 9
+					if (update_path == "notifications.propulsion.starboard.chargeIndicator") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 512, wxEmptyString);
+						}
+					}
+					// Bit 10
+					if (update_path == "notifications.propulsion.starboard.preheatIndicator") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 1024, wxEmptyString);
+						}
+					}
+					// Bit 11
+					if (update_path == "notifications.propulsion.starboard.highBoostPressure") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 2048, wxEmptyString);
+						}
+					}
+					// Bit 12
+					if (update_path == "notifications.propulsion.starboard.revLimitExceeded") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 4096, wxEmptyString);
+						}
+					}
+					// Bit 13
+					if (update_path == "notifications.propulsion.starboard.eGRSystem") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 8192, wxEmptyString);
+						}
+					}
+					// Bit 14
+					if (update_path == "notifications.propulsion.starboard.throttlePositionSensor") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 16384, wxEmptyString);
+						}
+					}
+					//Bit 15
+					if (update_path == "notifications.propulsion.starboard.emergencyStopMode") {
+						if (CheckAlarmState(value)) {
+							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 32768, wxEmptyString);
+						}
+					}
+					/////////////////
+
+					// Status Two Error Codes
+					// Currently Don't have icons for these, nor do I handle these in native NMEA 2000
+					// Bit 0
+					if (update_path == "notifications.propulsion.port.warningLevel1") {
+
+					}
+					// Bit 1
+					if (update_path == "notifications.propulsion.port.warningLevel2") {
+
+					}
+					// Bit 2
+					if (update_path == "notifications.propulsion.port.powerReduction") {
+
+					}
+					// Bit 3
+					if (update_path == "notifications.propulsion.port.maintenanceNeeded") {
+
+					}
+					// Bit 4
+					if (update_path == "notifications.propulsion.port.commError") {
+
+					}
+					// Bit 5
+					if (update_path == "notifications.propulsion.port.subOrSecondaryThrottle") {
+
+					}
+					// Bit 6
+					if (update_path == "notifications.propulsion.port.neutralStartProtect") {
+
+					}
+					// Bit 7
+					if (update_path == "notifications.propulsion.port.shuttingDown") {
+
+					}
+				}
+
+				// Fluid Levels
+				if (update_path.StartsWith("tanks", NULL)) {
+					m_tankLevelWatchDog = wxDateTime::Now();
+					wxString xdrunit = "Level";
+
+					if (update_path == _T("tanks.freshWater.0.currentLevel")) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, value.AsDouble() * 100, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, value.AsDouble() * 100, xdrunit);
+					}
+
+					if (update_path == _T("tanks.freshWater.1.currentLevel")) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, value.AsDouble() * 100, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, value.AsDouble() * 100, xdrunit);
+					}
+
+					if (update_path == _T("tanks.freshWater.2.currentLevel")) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, value.AsDouble() * 100, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, value.AsDouble() * 100, xdrunit);
+					}
+
+					if (update_path == _T("tanks.wasteWater.0.currentLevel")) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_GREY, value.AsDouble() * 100, xdrunit);
+					}
+
+					if (update_path == _T("tanks.blackWater.0.currentLevel")) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, value.AsDouble() * 100, xdrunit);
+					}
+
+					if (update_path == _T("tanks.fuel.0.currentLevel")) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, value.AsDouble() * 100, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, value.AsDouble() * 100, xdrunit);
+					}
+
+					if (update_path == _T("tanks.fuel.1.currentLevel")) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, value.AsDouble() * 100, xdrunit);
+						SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, value.AsDouble() * 100, xdrunit);
+					}
+				}
+			}
+		}
+	}
+}
+/*
+void Dashboard::HandleSKUpdate(wxJSONValue& update) {
+	if (update.HasMember("values") && update["values"].IsArray()) {
 		for (int j = 0; j < update["values"].Size(); ++j) {
-			wxJSONValue &item = update["values"][j];
+			wxJSONValue& item = update["values"][j];
 			UpdateSKItem(item);
 		}
 	}
 }
+*/
 
-void dashboard_pi::UpdateSKItem(wxJSONValue &item) {
-	if (item.HasMember("path") && item.HasMember("value")) {
-		const wxString &update_path = item["path"].AsString();
-		wxJSONValue &value = item["value"];
+//void Dashboard::UpdateSKItem(wxJSONValue& item) {
+//	if (item.HasMember("path") && item.HasMember("value")) {
 
-		if (update_path.StartsWith("propulsion")) {
-			engineWatchDog = wxDateTime::Now();
-		}
-
-		// RPM, Units in revolutions per second
-		if ((update_path == _T("propulsion.port.revolutions")) && (!g_bDualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
-		}
-
-		if ((update_path == _T("propulsion.port.revolutions")) && (g_bDualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
-		}
-
-		if (update_path == _T("propulsion.starboard.revolutions")) {
-			// dualEngine = TRUE;
-			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, GetJsonDouble(value) * 60, "RPM");
-		}
-		
-		// Alternator Potential, Units in volts
-		if ((update_path == _T("propulsion.port.alternatorVoltage")) && (!g_bDualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
-		}
-
-		if ((update_path == _T("propulsion.port.alternatorVoltage")) && (g_bDualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
-		}
-
-		if (update_path == _T("propulsion.starboard.alternatorVoltage")) {
-			// dualEngine = TRUE;
-			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, GetJsonDouble(value), "Volts");
-		}
-
-		// Oil Pressure
-		if (g_iDashPressureUnit == PRESSURE_BAR) {
-			// Units are in Pascals. 100000 Pascals = 1 Bar
-			if ((update_path == _T("propulsion.port.oilPressure")) && (!g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
-			}
-
-			if ((update_path == _T("propulsion.port.oilPressure")) && (g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
-			}
-
-			if (update_path == _T("propulsion.starboard.oilPressure")) {
-				// dualEngine = TRUE;
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, GetJsonDouble(value) * 1e-5, "Bar");
-			}
-		}
-
-		else if (g_iDashPressureUnit == PRESSURE_PSI) {
-			if ((update_path == _T("propulsion.port.oilPressure")) && (!g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
-			}
-
-			if ((update_path == _T("propulsion.port.oilPressure")) && (g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
-			}
-
-			if (update_path == _T("propulsion.starboard.oilPressure")) {
-				// dualEngine = TRUE;
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(GetJsonDouble(value)), "Psi");
-			}
-		}
-		
-		// Engine Temperature
-		if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-			// Units are in Kelvin
-			if ((update_path == _T("propulsion.port.temperature")) && (!g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
-			}
-
-			if ((update_path == _T("propulsion.port.temperature")) && (g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
-			}
-
-			if (update_path == _T("propulsion.starboard.temperature")) {
-				// dualEngine = TRUE;
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
-			}
-
-			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
-			}
-
-			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
-			}
-
-			if (update_path == _T("propulsion.starboard.exhaustTemperature")) {
-				// dualEngine = TRUE;
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, CONVERT_KELVIN(GetJsonDouble(value)), _T("\u00B0 C"));
-			}
-		}
-		else if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-			if ((update_path == _T("propulsion.port.temperature")) && (!g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
-			}
-
-			if ((update_path == _T("propulsion.port.temperature")) && (g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
-			}
-
-			if (update_path == _T("propulsion.starboard.temperature")) {
-				// dualEngine = TRUE;
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
-			}
-
-			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (!g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
-			}
-
-			if ((update_path == _T("propulsion.port.exhaustTemperature")) && (g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
-			}
-
-			if (update_path == _T("propulsion.starboard.exhaustTemperature")) {
-				// dualEngine = TRUE;
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(GetJsonDouble(value))), _T("\u00B0 F"));
-			}
-		}
-
-		// Fuel Rate
-		if (g_iDashVolumeUnit == VOLUME_LITRE) {
-			if ((update_path == _T("propulsion.port.fuel.rate")) && (!g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, GetJsonDouble(value)/ 10, "L/Hour");
-			}
-
-			if ((update_path == _T("propulsion.port.fuel.rate")) && (g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, GetJsonDouble(value) / 10, "L/Hour");
-			}
-
-			if (update_path == _T("propulsion.starboard.fuel.rate")) {
-				// dualEngine = TRUE;
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, GetJsonDouble(value) / 10, "L/Hour");
-			}
-		}
-		else if (g_iDashVolumeUnit == VOLUME_GALLON) {
-			if ((update_path == _T("propulsion.port.fuel.rate")) && (!g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, LITRES_GALLONS(GetJsonDouble(value) / 10), "Gal/Hr");
-			}
-
-			if ((update_path == _T("propulsion.port.fuel.rate")) && (g_bDualEngine)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, LITRES_GALLONS(GetJsonDouble(value) / 10), "Gal/Hr");
-			}
-
-			if (update_path == _T("propulsion.starboard.fuel.rate")) {
-				// dualEngine = TRUE;
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, LITRES_GALLONS(GetJsonDouble(value) / 10), "Gal/Hr");
-			}
-		}
-
-		// Units are in seconds
-		if ((update_path == _T("propulsion.port.runTime")) && (!g_bDualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
-		}
-
-		if ((update_path == _T("propulsion.port.runTime")) && (g_bDualEngine)) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
-		}
-
-		if (update_path == _T("propulsion.starboard.runTime")) {
-			// dualEngine = TRUE;
-			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
-		}
-
-		if (update_path == _T("electrical.batteries.0.voltage")) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_VOLTS, GetJsonDouble(value), "Volts");
-		}
-
-		if (update_path == _T("electrical.batteries.0.current")) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_AMPS, GetJsonDouble(value), "Amps");
-		}
-
-		if (update_path == _T("electrical.batteries.1.voltage")) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, GetJsonDouble(value), "Volts");
-		}
-
-		if (update_path == _T("electrical.batteries.1.current")) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, GetJsonDouble(value), "Amps");
-		}
-
-		if (update_path.StartsWith(_T("steering.rudderAngle"))) {
-			SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, RADIANS_TO_DEGREES(GetJsonDouble(value)), _T("\u00B0"));
-		}
-
-		// Engine Warning state = "alarm" or "normal"
-		if (update_path.StartsWith("notifications.propulsion", NULL)) {
-			// Status One Alarm conditions
-			// Main Engine
-			// Bit 0
-			if ((update_path == "notifications.propulsion.port.checkEngine") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 1, wxEmptyString);
-				}
-			}
-			// Bit 1
-			if ((update_path == "notifications.propulsion.port.overTemperature") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 2, wxEmptyString);
-				}
-			}
-			// Bit 2
-			if ((update_path == "notifications.propulsion.port.lowOilPressure") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 4, wxEmptyString);
-				}
-			}
-			// Bit 3
-			if ((update_path == "notifications.propulsion.port.lowOilLevel") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 8, wxEmptyString);
-				}
-			}
-			// Bit 4
-			if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 16, wxEmptyString);
-				}
-			}
-			// Bit 5
-			if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 32, wxEmptyString);
-				}
-			}
-			// Bit 6
-			if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 64, wxEmptyString);
-				}
-			}
-			// Bit 7
-			if ((update_path == "notifications.propulsion.port.waterFlow") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 128, wxEmptyString);
-				}
-			}
-			// Bit 8
-			if ((update_path == "notifications.propulsion.port.waterInFuel") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 256, wxEmptyString);
-				}
-			}
-			// Bit 9
-			if ((update_path == "notifications.propulsion.port.chargeIndicator") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 512, wxEmptyString);
-				}
-			}
-			// Bit 10
-			if ((update_path == "notifications.propulsion.port.preheatIndicator") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 1024, wxEmptyString);
-				}
-			}
-			// Bit 11
-			if ((update_path == "notifications.propulsion.port.highBoostPressure") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 2048, wxEmptyString);
-				}
-			}
-			// Bit 12
-			if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 4096, wxEmptyString);
-				}
-			}
-			// Bit 13
-			if ((update_path == "notifications.propulsion.port.eGRSystem") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 8192, wxEmptyString);
-				}
-			}
-			// Bit 14
-			if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 16384, wxEmptyString);
-				}
-			}
-			//Bit 15
-			if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (!g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, 32768, wxEmptyString);
-				}
-			}
-			// Port Engine
-			// Bit 0
-			if ((update_path == "notifications.propulsion.port.checkEngine") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 1, wxEmptyString);
-				}
-			}
-			// Bit 1
-			if ((update_path == "notifications.propulsion.port.overTemperature") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 2, wxEmptyString);
-				}
-			}
-			// Bit 2
-			if ((update_path == "notifications.propulsion.port.lowOilPressure") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 4, wxEmptyString);
-				}
-			}
-			// Bit 3
-			if ((update_path == "notifications.propulsion.port.lowOilLevel") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 8, wxEmptyString);
-				}
-			}
-			// Bit 4
-			if ((update_path == "notifications.propulsion.port.lowFuelPressure") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 16, wxEmptyString);
-				}
-			}
-			// Bit 5
-			if ((update_path == "notifications.propulsion.port.lowSystemVoltage") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 32, wxEmptyString);
-				}
-			}
-			// Bit 6
-			if ((update_path == "notifications.propulsion.port.lowCoolantLevel") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 64, wxEmptyString);
-				}
-			}
-			// Bit 7
-			if ((update_path == "notifications.propulsion.port.waterFlow") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 128, wxEmptyString);
-				}
-			}
-			// Bit 8
-			if ((update_path == "notifications.propulsion.port.waterInFuel") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 256, wxEmptyString);
-				}
-			}
-			// Bit 9
-			if ((update_path == "notifications.propulsion.port.chargeIndicator") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 512, wxEmptyString);
-				}
-			}
-			// Bit 10
-			if ((update_path == "notifications.propulsion.port.preheatIndicator") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 1024, wxEmptyString);
-				}
-			}
-			// Bit 11
-			if ((update_path == "notifications.propulsion.port.highBoostPressure") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 2048, wxEmptyString);
-				}
-			}
-			// Bit 12
-			if ((update_path == "notifications.propulsion.port.revLimitExceeded") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 4096, wxEmptyString);
-				}
-			}
-			// Bit 13
-			if ((update_path == "notifications.propulsion.port.eGRSystem") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 8192, wxEmptyString);
-				}
-			}
-			// Bit 14
-			if ((update_path == "notifications.propulsion.port.throttlePositionSensor") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 16384, wxEmptyString);
-				}
-			}
-			//Bit 15
-			if ((update_path == "notifications.propulsion.port.emergencyStopMode") && (g_bDualEngine)) {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, 32768, wxEmptyString);
-				}
-			}
-
-			// Starboard Engine
-			// Bit 0
-			if (update_path == "notifications.propulsion.starboard.checkEngine") {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 1, wxEmptyString);
-				}
-			}
-			// Bit 1
-			if (update_path == "notifications.propulsion.starboard.overTemperature")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 2, wxEmptyString);
-				}
-			}
-			// Bit 2
-			if (update_path == "notifications.propulsion.starboard.lowOilPressure")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 4, wxEmptyString);
-				}
-			}
-			// Bit 3
-			if (update_path == "notifications.propulsion.starboard.lowOilLevel")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 8, wxEmptyString);
-				}
-			}
-			// Bit 4
-			if (update_path == "notifications.propulsion.starboard.lowFuelPressure")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 16, wxEmptyString);
-				}
-			}
-			// Bit 5
-			if (update_path == "notifications.propulsion.starboard.lowSystemVoltage")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 32, wxEmptyString);
-				}
-			}
-			// Bit 6
-			if (update_path == "notifications.propulsion.starboard.lowCoolantLevel")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 64, wxEmptyString);
-				}
-			}
-			// Bit 7
-			if (update_path == "notifications.propulsion.starboard.waterFlow")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 128, wxEmptyString);
-				}
-			}
-			// Bit 8
-			if (update_path == "notifications.propulsion.starboard.waterInFuel")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 256, wxEmptyString);
-				}
-			}
-			// Bit 9
-			if (update_path == "notifications.propulsion.starboard.chargeIndicator")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 512, wxEmptyString);
-				}
-			}
-			// Bit 10
-			if (update_path == "notifications.propulsion.starboard.preheatIndicator")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 1024, wxEmptyString);
-				}
-			}
-			// Bit 11
-			if (update_path == "notifications.propulsion.starboard.highBoostPressure")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 2048, wxEmptyString);
-				}
-			}
-			// Bit 12
-			if (update_path == "notifications.propulsion.starboard.revLimitExceeded")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 4096, wxEmptyString);
-				}
-			}
-			// Bit 13
-			if (update_path == "notifications.propulsion.starboard.eGRSystem")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 8192, wxEmptyString);
-				}
-			}
-			// Bit 14
-			if (update_path == "notifications.propulsion.starboard.throttlePositionSensor")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 16384, wxEmptyString);
-				}
-			}
-			//Bit 15
-			if (update_path == "notifications.propulsion.starboard.emergencyStopMode")  {
-				if (CheckAlarmState(value)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, 32768, wxEmptyString);
-				}
-			}
-			/////////////////
-
-			// Status Two Error Codes
-			// Currently Don't have icons for these, nor do I handle these in native NMEA 2000
-			// Bit 0
-			if (update_path == "notifications.propulsion.port.warningLevel1") {
-
-			} 
-			// Bit 1
-			if (update_path == "notifications.propulsion.port.warningLevel2") {
-
-			} 
-			// Bit 2
-			if (update_path == "notifications.propulsion.port.powerReduction") {
-
-			} 
-			// Bit 3
-			if (update_path == "notifications.propulsion.port.maintenanceNeeded") {
-
-			} 
-			// Bit 4
-			if (update_path == "notifications.propulsion.port.commError") {
-
-			} 
-			// Bit 5
-			if (update_path == "notifications.propulsion.port.subOrSecondaryThrottle") {
-
-			} 
-			// Bit 6
-			if (update_path == "notifications.propulsion.port.neutralStartProtect") {
-
-			} 
-			// Bit 7
-			if (update_path == "notifications.propulsion.port.shuttingDown") {
-
-			}
-		}
-
-		// Fluid Levels
-		if (update_path.StartsWith("tanks", NULL)) {
-			tankLevelWatchDog = wxDateTime::Now();
-			wxString xdrunit = "Level";
-
-			// Units are meant to be in percent, but they seem to range from 0 to 1
-			if (update_path == _T("tanks.freshWater.0.currentLevel")) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, GetJsonDouble(value) * 100, xdrunit);
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, GetJsonDouble(value) * 100, xdrunit);
-			}
-
-			if (update_path == _T("tanks.freshWater.1.currentLevel")) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, GetJsonDouble(value) * 100, xdrunit);
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, GetJsonDouble(value) * 100, xdrunit);
-			}
-
-			if (update_path == _T("tanks.freshWater.2.currentLevel")) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, GetJsonDouble(value) * 100, xdrunit);
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, GetJsonDouble(value) * 100, xdrunit);
-			}
-
-			if (update_path == _T("tanks.wasteWater.0.currentLevel")) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_GREY, GetJsonDouble(value) * 100, xdrunit);
-			}
-
-			if (update_path == _T("tanks.blackWater.0.currentLevel")) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, GetJsonDouble(value) * 100, xdrunit);
-			}
-
-			if (update_path == _T("tanks.fuel.0.currentLevel")) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, GetJsonDouble(value) * 100, xdrunit);
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, GetJsonDouble(value) * 100, xdrunit);
-			}
-
-			if (update_path == _T("tanks.fuel.1.currentLevel")) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, GetJsonDouble(value) * 100, xdrunit);
-				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, GetJsonDouble(value) * 100, xdrunit);
-			}
-		}
-	}
-}
+//	}
+//}		
 
 // SignalK Engine Notifications
 // "state": "normal | alarm"
 // "method: ["visual", "sound"]
-// "message": "Port Enngine Charge Indicator is normal"
-bool dashboard_pi::CheckAlarmState(wxJSONValue& value) {
+// "message": "Port Engine Charge Indicator is normal"
+bool Dashboard::CheckAlarmState(wxJSONValue& value) {
 	if (value.HasMember("state")) {
 		if (value["state"].AsString() == "alarm") {
 			return true;
@@ -1253,7 +972,8 @@ bool dashboard_pi::CheckAlarmState(wxJSONValue& value) {
 	return false;
 }
 
-void dashboard_pi::HandleXDR(ObservedEvt ev) {
+// NMEA 0183 
+void Dashboard::HandleXDR(ObservedEvt ev) {
 	NMEA0183Id id_183_xdr("XDR");
 
 	wxString sentence(GetN0183Payload(id_183_xdr, ev));
@@ -1284,7 +1004,7 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 			if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("T")) {
 				if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("R")) {
 					// Update Watchdog timer
-					engineWatchDog = wxDateTime::Now();
+					m_engineWatchDog = wxDateTime::Now();
 					// Set the units
 					xdrunit = _T("RPM");
 					// TwoCan plugin transducer names
@@ -1301,20 +1021,20 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_dualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_dualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, xdrdata, xdrunit);
 					}
 					// Ship Modul/Maretron transducer names
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (!g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (!g_dualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE0")) && (g_dualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, xdrdata, xdrunit);
 					}
 				}
@@ -1323,7 +1043,7 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 			// "C" Temperature in "C" degrees Celsius
 			if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("C")) {
 				if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("C")) {
-					if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
+					if (g_temperatureUnit == TEMPERATURE_CELSIUS) {
 						xdrunit = _T("\u00B0 C");
 						// TwoCan transducer naming
 						if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
@@ -1340,34 +1060,34 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, xdrdata, xdrunit);
 						}
 						// Engine Exhaust
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, xdrdata, xdrunit);
 						}
 						// Ship Modul/Maretron Transducer Names
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, xdrdata, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, xdrdata, xdrunit);
 						}
 					}
-					else if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
+					else if (g_temperatureUnit == TEMPERATURE_FAHRENHEIT) {
 						xdrunit = _T("\u00B0 F");
 						// TwoCan Transducer naming 
 						if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
@@ -1384,30 +1104,30 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
 						// Exhaust Temperature
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEEXHAUST#0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
 						// Ship Modul/Maretron Transducer Names
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGTEMP0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(xdrdata), xdrunit);
 						}
 					}
@@ -1417,7 +1137,7 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 			// "P" Pressure in "P" pascal
 			if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("P")) {
 				if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("P")) {
-					if (g_iDashPressureUnit == PRESSURE_BAR) {
+					if (g_pressureUnit == PRESSURE_BAR) {
 						xdrunit = _T("Bar");
 						// TwoCan Transducer naming
 						if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
@@ -1433,25 +1153,25 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
 						// Ship Modul/Maretron Transducer Names
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, xdrdata * 1e-5, xdrunit);
 						}
 
 					}
-					else if (g_iDashPressureUnit == PRESSURE_PSI) {
+					else if (g_pressureUnit == PRESSURE_PSI) {
 						xdrunit = _T("PSI");
 						// TwoCan Plugin Transducer Names
 						if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
@@ -1467,20 +1187,20 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEOIL#0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
 						// Ship Modul/MaretronTransducer Names
 						else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP1")) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (!g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
-						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (g_bDualEngine)) {
+						else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGOILP0")) && (g_dualEngine)) {
 							SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(xdrdata), xdrunit);
 						}
 					}
@@ -1511,10 +1231,10 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (!g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (!g_dualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTERNATOR#0")) && (g_dualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATTERY#0")) {
@@ -1527,10 +1247,10 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT1")) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (!g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (!g_dualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ALTVOLT0")) && (g_dualEngine)) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("BATVOLT0")) {
@@ -1580,15 +1300,15 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 					xdrunit = _T("Hrs");
 					// TwoCan Plugin transducer naming
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("MAIN")) {
-						mainEngineHours = xdrdata;
+						m_mainEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("PORT")) {
-						portEngineHours = xdrdata;
+						m_portEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
 					}
 					else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("STBD")) {
-						stbdEngineHours = xdrdata;
+						m_stbdEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 					}
 				}
@@ -1597,17 +1317,17 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 				if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#1")) {
 						xdrunit = _T("Hrs");
-						stbdEngineHours = xdrdata;
+						m_stbdEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (!g_dualEngine)) {
 						xdrunit = _T("Hrs");
-						mainEngineHours = xdrdata;
+						m_mainEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINE#0")) && (g_dualEngine)) {
 						xdrunit = _T("Hrs");
-						portEngineHours = xdrdata;
+						m_portEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
 					}
 				}
@@ -1616,17 +1336,17 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 				if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#1")) {
 						xdrunit = _T("Hrs");
-						stbdEngineHours = xdrdata;
+						m_stbdEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (!g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (!g_dualEngine)) {
 						xdrunit = _T("Hrs");
-						mainEngineHours = xdrdata;
+						m_mainEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGINEHOURS#0")) && (g_dualEngine)) {
 						xdrunit = _T("Hrs");
-						portEngineHours = xdrdata;
+						m_portEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
 					}
 				}
@@ -1635,17 +1355,17 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 				if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == wxEmptyString) {
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS1")) {
 						xdrunit = _T("Hrs");
-						stbdEngineHours = xdrdata;
+						m_stbdEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (!g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (!g_dualEngine)) {
 						xdrunit = _T("Hrs");
-						mainEngineHours = xdrdata;
+						m_mainEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, xdrdata, xdrunit);
 					}
-					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (g_bDualEngine)) {
+					else if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("ENGHRS0")) && (g_dualEngine)) {
 						xdrunit = _T("Hrs");
-						portEngineHours = xdrdata;
+						m_portEngineHours = xdrdata;
 						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, xdrdata, xdrunit);
 					}
 				}
@@ -1658,7 +1378,7 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 			if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("V")) {
 				if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("P")) {
 					// Update Watchdog Timer
-					tankLevelWatchDog = wxDateTime::Now();
+					m_tankLevelWatchDog = wxDateTime::Now();
 					xdrunit = _T("Level");
 					// TwoCan Plugin Transducer Names
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("FUEL")) {
@@ -1720,7 +1440,7 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 			if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("E")) {
 				if (m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement == _T("P")) {
 					// Update Watchdog Timer
-					tankLevelWatchDog = wxDateTime::Now();
+					m_tankLevelWatchDog = wxDateTime::Now();
 					xdrunit = _T("Level");
 					// NMEA 183 v4.11 Transducer Names
 					if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.Upper() == _T("FUEL#0")) {
@@ -1794,7 +1514,7 @@ void dashboard_pi::HandleXDR(ObservedEvt ev) {
 	}
 }
 
-void dashboard_pi::HandleRPM(ObservedEvt ev) {
+void Dashboard::HandleRPM(ObservedEvt ev) {
 	NMEA0183Id id_183_rpm("RPM");
 
 	wxString sentence(GetN0183Payload(id_183_rpm, ev));
@@ -1805,7 +1525,7 @@ void dashboard_pi::HandleRPM(ObservedEvt ev) {
 			// Only display engine rpm 'E', not shaft rpm 'S'
 			if (m_NMEA0183.Rpm.Source == _T("E")) {
 				// Update Watchdog Timer
-				engineWatchDog = wxDateTime::Now();
+				m_engineWatchDog = wxDateTime::Now();
 				// Engine Numbering: 
 				// 0 = Mid-line, Odd = Starboard, Even = Port (numbered from midline)
 				switch (m_NMEA0183.Rpm.EngineNumber) {
@@ -1827,7 +1547,7 @@ void dashboard_pi::HandleRPM(ObservedEvt ev) {
 	}
 }
 
-void dashboard_pi::HandleRSA(ObservedEvt ev) {
+void Dashboard::HandleRSA(ObservedEvt ev) {
 	NMEA0183Id id_183_rsa("RSA");
 
 	wxString sentence(GetN0183Payload(id_183_rsa, ev));
@@ -1845,14 +1565,9 @@ void dashboard_pi::HandleRSA(ObservedEvt ev) {
 	}
 }
 
-// BUG BUG Core OpenCPN has yet to implement the GetSignalKPayload function
-// BUG BUG Fixed in OCPN Plugin API 1.19, contemplate for the next update cycle
-// Refer to Racing Plugin for working code
-void dashboard_pi::HandleSignalK(ObservedEvt ev) {
-	NMEA0183Id id_signalk("self");
-}
 
 
+// NMEA 2000
 // Raw NMEA 2000 generated by OpenCPN v5.8
 // Parsing routines cut and pasted from TwoCan Plugin
 // Refer to twocandevice.cpp
@@ -1880,11 +1595,11 @@ void dashboard_pi::HandleSignalK(ObservedEvt ev) {
 // use an index into the "real" payload at byte 13 
 
 // PGN 127488 Engine Rapid Update
-void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
+void Dashboard::HandleN2K_127488(ObservedEvt ev) {
 	NMEA2000Id id_127488(127488);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127488, ev);
 
-	byte engineInstance;
+	uint8_t engineInstance;
 	engineInstance = payload[index + 0];
 
 	unsigned short engineSpeed; // RPM in quarter revolutions per minute
@@ -1897,34 +1612,34 @@ void dashboard_pi::HandleN2K_127488(ObservedEvt ev) {
 	engineTrim = payload[index + 5];
 
 	if (engineInstance > 0) {
-		g_bDualEngine = TRUE;
+		g_dualEngine = TRUE;
 	}
 
-	engineWatchDog = wxDateTime::Now();
+	m_engineWatchDog = wxDateTime::Now();
 
 	if (IsDataValid(engineSpeed)) {
 		switch (engineInstance) {
-			case 0:
-				if (g_bDualEngine) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
-				}
-				else {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
-				}
-				break;
-			case 1:
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
-				break;
+		case 0:
+			if (g_dualEngine) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
+			}
+			else {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
+			}
+			break;
+		case 1:
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_RPM, engineSpeed * 0.25f, "RPM");
+			break;
 		}
 	}
 }
 
 // PGN 127489 Engine Dynamic 
-void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
+void Dashboard::HandleN2K_127489(ObservedEvt ev) {
 	NMEA2000Id id_127489(127489);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127489, ev);
 
-	byte engineInstance;
+	uint8_t engineInstance;
 	engineInstance = payload[index + 0];
 
 	unsigned short oilPressure; // hPa (1 hPa = 100Pa, 1 hPa = .001 Bar)
@@ -1936,10 +1651,10 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	unsigned short engineTemperature; // 0.01 degree resolution, in Kelvin
 	engineTemperature = payload[index + 5] | (payload[index + 6] << 8);
 
-	short alternatorPotential; // 0.01 Volts
+	unsigned short alternatorPotential; // 0.01 Volts
 	alternatorPotential = payload[index + 7] | (payload[index + 8] << 8);
 
-	short fuelRate; // 0.1 Litres/hour
+	unsigned short fuelRate; // 0.1 Litres/hour
 	fuelRate = payload[index + 9] | (payload[index + 10] << 8);
 
 	unsigned int totalEngineHours;  // seconds
@@ -1986,152 +1701,124 @@ void dashboard_pi::HandleN2K_127489(ObservedEvt ev) {
 	// { "6": "Neutral Start Protect" },
 	// { "7": "Engine Shutting Down" }]
 
-	byte engineLoad;  // percentage
+	uint8_t engineLoad;  // percentage
 	engineLoad = payload[index + 24];
 
-	byte engineTorque; // percentage
+	uint8_t engineTorque; // percentage
 	engineTorque = payload[index + 25];
 
 	if (engineInstance > 0) {
-		g_bDualEngine = TRUE;
+		g_dualEngine = TRUE;
 	}
 
 	switch (engineInstance) {
-		case 0:
-			if (g_bDualEngine) {
-				if (IsDataValid(oilPressure)) {
-					if (g_iDashPressureUnit == PRESSURE_BAR) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, oilPressure * 1e-3, "Bar");
-					}
-					if (g_iDashPressureUnit == PRESSURE_PSI) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(oilPressure * 100), "Psi");
-					}
-				}
-
-				if (IsDataValid(engineTemperature)) {
-					if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
-					}
-					if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN((engineTemperature * 0.01f))), _T("\u00B0 F"));
-					}
-				}
-			
-				if (IsDataValid(alternatorPotential)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
-				}
-
-				if (IsDataValid(totalEngineHours)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
-				}
-
-				if (statusOne !=0) {
-					wxLogMessage("XXXXXXXX Engine Status: %d", statusOne);
-					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
-				}
-
-				if (IsDataValid(fuelRate)) {
-					if (g_iDashVolumeUnit == VOLUME_LITRE) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, fuelRate / 10.0, "L/Hour");
-					}
-					if (g_iDashVolumeUnit == VOLUME_GALLON) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, LITRES_GALLONS(fuelRate / 10.0), "Gal/Hr");
-					}
-				}
-
-			}
-			else {
-				if (IsDataValid(oilPressure)) {
-					if (g_iDashPressureUnit == PRESSURE_BAR) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, oilPressure * 1e-3, "Bar");
-					}
-					if (g_iDashPressureUnit == PRESSURE_PSI) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(oilPressure  * 100), "Psi");
-					}
-				}
-				if (IsDataValid(engineTemperature)) {
-					if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
-					}
-					if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN((engineTemperature * 0.01f))), _T("\u00B0 F"));
-					}
-				}
-
-				if (IsDataValid(alternatorPotential)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
-				}
-
-				if (IsDataValid(totalEngineHours)) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
-				}
-
-				if (statusOne != 0) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
-				}
-
-				if (IsDataValid(fuelRate)) {
-					if (g_iDashVolumeUnit == VOLUME_LITRE) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
-					}
-					if (g_iDashVolumeUnit == VOLUME_GALLON) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, LITRES_GALLONS(fuelRate / 10), "Gal/Hr");
-					}
-				}
-			}
-			break;
-		case 1:
+	case 0:
+		if (g_dualEngine) {
 			if (IsDataValid(oilPressure)) {
-				if (g_iDashPressureUnit == PRESSURE_BAR) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, oilPressure * 1e-3, "Bar");
+				if (g_pressureUnit == PRESSURE_BAR) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, oilPressure * 1e-3, "Bar");
 				}
-				if (g_iDashPressureUnit == PRESSURE_PSI) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(oilPressure * 100), "Psi");
+				if (g_pressureUnit == PRESSURE_PSI) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_OIL, Pascal2Psi(oilPressure * 100), "Psi");
 				}
 			}
+
 			if (IsDataValid(engineTemperature)) {
-				if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
+				if (g_temperatureUnit == TEMPERATURE_CELSIUS) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
 				}
-				if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit((CONVERT_KELVIN(engineTemperature * 0.01f))), _T("\u00B0 F"));
+				if (g_temperatureUnit == TEMPERATURE_FAHRENHEIT) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN((engineTemperature * 0.01f))), _T("\u00B0 F"));
 				}
 			}
 
 			if (IsDataValid(alternatorPotential)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
 			}
 
 			if (IsDataValid(totalEngineHours)) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
 			}
 
-			if (statusOne != 0) {
-				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
+			if (IsDataValid(statusOne)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
 			}
 
-			if (IsDataValid(fuelRate)) {
-				if (g_iDashVolumeUnit == VOLUME_LITRE) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
-				}
-				if (g_iDashVolumeUnit == VOLUME_GALLON) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, LITRES_GALLONS(fuelRate / 10), "Gal/Hr");
-				}
-			}
-
-			break;
 		}
+		else {
+			if (IsDataValid(oilPressure)) {
+				if (g_pressureUnit == PRESSURE_BAR) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, oilPressure * 1e-3, "Bar");
+				}
+				if (g_pressureUnit == PRESSURE_PSI) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_OIL, Pascal2Psi(oilPressure * 100), "Psi");
+				}
+			}
+			if (IsDataValid(engineTemperature)) {
+				if (g_temperatureUnit == TEMPERATURE_CELSIUS) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
+				}
+				if (g_temperatureUnit == TEMPERATURE_FAHRENHEIT) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_WATER, Celsius2Fahrenheit(CONVERT_KELVIN((engineTemperature * 0.01f))), _T("\u00B0 F"));
+				}
+			}
+
+			if (IsDataValid(alternatorPotential)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
+			}
+
+			if (IsDataValid(totalEngineHours)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
+			}
+
+			if (IsDataValid(statusOne)) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
+			}
+		}
+		break;
+	case 1:
+		if (IsDataValid(oilPressure)) {
+			if (g_pressureUnit == PRESSURE_BAR) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, oilPressure * 1e-3, "Bar");
+			}
+			if (g_pressureUnit == PRESSURE_PSI) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_OIL, Pascal2Psi(oilPressure * 100), "Psi");
+			}
+		}
+		if (IsDataValid(engineTemperature)) {
+			if (g_temperatureUnit == TEMPERATURE_CELSIUS) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, CONVERT_KELVIN((engineTemperature * 0.01f)), _T("\u00B0 C"));
+			}
+			if (g_temperatureUnit == TEMPERATURE_FAHRENHEIT) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_WATER, Celsius2Fahrenheit((CONVERT_KELVIN(engineTemperature * 0.01f))), _T("\u00B0 F"));
+			}
+		}
+
+		if (IsDataValid(alternatorPotential)) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_VOLTS, alternatorPotential * 0.01, "Volts");
+		}
+
+		if (IsDataValid(totalEngineHours)) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_HOURS, totalEngineHours / 3600.0, "Hrs");
+		}
+
+		if (IsDataValid(statusOne)) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
+		}
+
+		break;
+	}
 }
 
 // PGN 127505 Fluid Levels
-void dashboard_pi::HandleN2K_127505(ObservedEvt ev) {
+void Dashboard::HandleN2K_127505(ObservedEvt ev) {
 	NMEA2000Id id_127505(127505);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127505, ev);
 
-	byte instance;
+	uint8_t instance;
 	instance = payload[index + 0] & 0x0F;
 
-	byte tankType;
+	uint8_t tankType;
 	tankType = (payload[index + 0] & 0xF0) >> 4;
 
 	unsigned short tankLevel; // percentage in 0.025 increments
@@ -2140,60 +1827,104 @@ void dashboard_pi::HandleN2K_127505(ObservedEvt ev) {
 	unsigned int tankCapacity; // 0.1 L
 	tankCapacity = payload[index + 3] | (payload[index + 4] << 8) | (payload[index + 5] << 16) | (payload[index + 6] << 24);
 
-	tankLevelWatchDog = wxDateTime::Now();
+	m_tankLevelWatchDog = wxDateTime::Now();
 
 	if (IsDataValid(tankLevel)) {
 
 		switch (tankType) {
-			case 0: // Fuel
-				if (instance == 0) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, tankLevel / 250, "Level");
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, tankLevel / 250, "Level");
-				}
-				if (instance == 1) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, tankLevel / 250, "Level");
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, tankLevel / 250, "Level");
-				}
-				break;
-			case 1: // Freshwater
-				if (instance == 0) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, tankLevel / 250, "Level");
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, tankLevel / 250, "Level");
-				}
-				if (instance == 1) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, tankLevel / 250, "Level");
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, tankLevel / 250, "Level");
-				}
-				if (instance == 2) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, tankLevel / 250, "Level");
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, tankLevel / 250, "Level");
-				}
-				break;
-			case 2: // Waste water
-				if (instance == 0) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_GREY, tankLevel / 250, "Level");
-				}
-				break;
-			case 4: // Oil
-				if (instance == 0) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, tankLevel / 250, "Level");
-				}
-				break;
-			case 5: // Blackwater
-				if (instance == 0) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, tankLevel / 250, "Level");
-				}
-				break;
+		case 0: // Fuel
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_01, tankLevel / 250, "Level");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, tankLevel / 250, "Level");
 			}
+			if (instance == 1) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_02, tankLevel / 250, "Level");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, tankLevel / 250, "Level");
+			}
+			break;
+		case 1: // Freshwater
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_01, tankLevel / 250, "Level");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, tankLevel / 250, "Level");
+			}
+			if (instance == 1) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_02, tankLevel / 250, "Level");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, tankLevel / 250, "Level");
+			}
+			if (instance == 2) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_03, tankLevel / 250, "Level");
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, tankLevel / 250, "Level");
+			}
+			break;
+		case 2: // Waste water
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_GREY, tankLevel / 250, "Level");
+			}
+			break;
+		case 4: // Oil
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_OIL, tankLevel / 250, "Level");
+			}
+			break;
+		case 5: // Blackwater
+			if (instance == 0) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_TANK_LEVEL_BLACK, tankLevel / 250, "Level");
+			}
+			break;
+		}
+	}
+}
+
+// PGN 127506 Battery Status
+void Dashboard::HandleN2K_127506(ObservedEvt ev) {
+	NMEA2000Id id_127506(127506);
+	std::vector<uint8_t>payload = GetN2000Payload(id_127506, ev);
+
+	uint8_t sid;
+	sid = payload[index + 0];
+
+	uint8_t batteryInstance;
+	batteryInstance = payload[index + 1];
+
+	uint8_t chargeSource;
+	chargeSource = payload[index + 2];
+
+	uint8_t stateOfCharge; // %
+	stateOfCharge = payload[index + 3];
+
+	uint8_t stateOfHealth; // %
+	stateOfHealth = payload[index + 4];
+
+	unsigned short timeRemaining; // Hours
+	timeRemaining = payload[index + 5] | (payload[index + 6] << 8);
+
+	unsigned short rippleVoltage; // milliVolts, so multiply by 1e-3
+	rippleVoltage = payload[index + 7] | (payload[index + 8] << 8);
+
+	unsigned short ampHours; // Hours
+	ampHours = payload[index + 9] | (payload[index + 10] << 8);
+
+	if ((IsDataValid(stateOfCharge)) && (IsDataValid(timeRemaining))) {
+
+		if (batteryInstance == 0) {
+
+			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_SOC, static_cast<double>(stateOfCharge), "%");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_HOURS, static_cast<double>(timeRemaining), "Hours");
+		}
+
+		if (batteryInstance == 1) {
+			SendSentenceToAllInstruments(OCPN_DBP_STC_HOUSE_BATTERY_SOC, stateOfCharge, "%");
+			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_HOURS, timeRemaining, "Hours");
+		}
 	}
 }
 
 // PGN 127508 Battery Status
-void dashboard_pi::HandleN2K_127508(ObservedEvt ev) {
+void Dashboard::HandleN2K_127508(ObservedEvt ev) {
 	NMEA2000Id id_127508(127508);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127508, ev);
 
-	byte batteryInstance;
+	uint8_t batteryInstance;
 	batteryInstance = payload[index + 0];
 
 	unsigned short batteryVoltage; // 0.01 volts
@@ -2205,7 +1936,7 @@ void dashboard_pi::HandleN2K_127508(ObservedEvt ev) {
 	unsigned short batteryTemperature; // 0.01 degree resolution, in Kelvin
 	batteryTemperature = payload[index + 5] | (payload[index + 6] << 8);
 
-	byte sid;
+	uint8_t sid;
 	sid = payload[index + 7];
 
 	if ((IsDataValid(batteryVoltage)) && (IsDataValid(batteryCurrent))) {
@@ -2220,21 +1951,21 @@ void dashboard_pi::HandleN2K_127508(ObservedEvt ev) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_START_BATTERY_VOLTS, batteryCurrent * 0.1f, "Amps");
 		}
 	}
-	
+
 }
 
 // PGN 130312 Temperature (used for Exhaust Gas Temperature)
-void dashboard_pi::HandleN2K_130312(ObservedEvt ev) {
+void Dashboard::HandleN2K_130312(ObservedEvt ev) {
 	NMEA2000Id id_130312(130312);
 	std::vector<uint8_t>payload = GetN2000Payload(id_130312, ev);
 
-	byte sid;
+	uint8_t sid;
 	sid = payload[index + 0];
 
-	byte engineInstance;
+	uint8_t engineInstance;
 	engineInstance = payload[index + 1];
 
-	byte source;
+	uint8_t source;
 	source = payload[index + 2];
 
 	unsigned short actualTemperature;
@@ -2244,52 +1975,52 @@ void dashboard_pi::HandleN2K_130312(ObservedEvt ev) {
 	setTemperature = payload[index + 5] | (payload[index + 6] << 8);
 
 	if (engineInstance > 0) {
-		g_bDualEngine = TRUE;
+		g_dualEngine = TRUE;
 	}
 
 	// Source 14 indicates exhaust temperature
 	if ((source == 14) && (IsDataValid(actualTemperature))) {
 
 		switch (engineInstance) {
-			case 0:
-				if (g_bDualEngine) {
-					if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, CONVERT_KELVIN((actualTemperature * 0.01f)), _T("\u00B0 C"));
-					}
-					if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN((actualTemperature * 0.01f))), _T("\u00B0 F"));
-					}
+		case 0:
+			if (g_dualEngine) {
+				if (g_temperatureUnit == TEMPERATURE_CELSIUS) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, CONVERT_KELVIN((actualTemperature * 0.01f)), _T("\u00B0 C"));
 				}
-				else {
-					if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, CONVERT_KELVIN((actualTemperature * 0.01f)), _T("\u00B0 C"));
-					}
-					if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN((actualTemperature * 0.01f))), _T("\u00B0 F"));
-					}
+				if (g_temperatureUnit == TEMPERATURE_FAHRENHEIT) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN((actualTemperature * 0.01f))), _T("\u00B0 F"));
 				}
-				break;
-			case 1:
-				if (g_iDashTemperatureUnit == TEMPERATURE_CELSIUS) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, CONVERT_KELVIN((actualTemperature * 0.01f)), _T("\u00B0 C"));
+			}
+			else {
+				if (g_temperatureUnit == TEMPERATURE_CELSIUS) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, CONVERT_KELVIN((actualTemperature * 0.01f)), _T("\u00B0 C"));
 				}
-				if (g_iDashTemperatureUnit == TEMPERATURE_FAHRENHEIT) {
-					SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN((actualTemperature * 0.01f))), _T("\u00B0 F"));
+				if (g_temperatureUnit == TEMPERATURE_FAHRENHEIT) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN((actualTemperature * 0.01f))), _T("\u00B0 F"));
 				}
-				break;
+			}
+			break;
+		case 1:
+			if (g_temperatureUnit == TEMPERATURE_CELSIUS) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, CONVERT_KELVIN((actualTemperature * 0.01f)), _T("\u00B0 C"));
+			}
+			if (g_temperatureUnit == TEMPERATURE_FAHRENHEIT) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN((actualTemperature * 0.01f))), _T("\u00B0 F"));
+			}
+			break;
 		}
 	}
 }
 
 // PGN 127245 Rudder Angle 
-void dashboard_pi::HandleN2K_127245(ObservedEvt ev) {
+void Dashboard::HandleN2K_127245(ObservedEvt ev) {
 	NMEA2000Id id_127245(127245);
 	std::vector<uint8_t>payload = GetN2000Payload(id_127245, ev);
 
-	byte instance;
+	uint8_t instance;
 	instance = payload[index + 0];
 
-	byte directionOrder;
+	uint8_t directionOrder;
 	directionOrder = payload[index + 1] & 0x03;
 
 	short angleOrder; // 0.0001 radians
@@ -2305,1312 +2036,834 @@ void dashboard_pi::HandleN2K_127245(ObservedEvt ev) {
 }
 
 
-// Not sure what this does or is used for. I guess we only install one toolbar item??
-int dashboard_pi::GetToolbarToolCount(void) {
-    return 1;
+int Dashboard::GetToolbarToolCount(void) { 
+	return 1; 
 }
 
-// Display the Dashboard Settings Dialog
-void dashboard_pi::ShowPreferencesDialog(wxWindow* parent) {
-	DashboardPreferencesDialog *dialog = new DashboardPreferencesDialog(parent, wxID_ANY, m_ArrayOfDashboardWindow);
-	if (dialog->ShowModal() == wxID_OK) {
-		// Reload the fonts in case they have been changed
-		delete g_pFontTitle;
-		delete g_pFontData;
-		delete g_pFontLabel;
-		delete g_pFontSmall;
+// Display our preferences dialog
+void Dashboard::ShowPreferencesDialog(wxWindow *parent) {
+  DashboardPreferencesDialog *dialog = new DashboardPreferencesDialog(
+      parent, wxID_ANY, m_ArrayOfDashboardWindow);
 
-		g_pFontTitle = new wxFont(dialog->m_pFontPickerTitle->GetSelectedFont());
-		g_pFontData = new wxFont(dialog->m_pFontPickerData->GetSelectedFont());
-		g_pFontLabel = new wxFont(dialog->m_pFontPickerLabel->GetSelectedFont());
-		g_pFontSmall = new wxFont(dialog->m_pFontPickerSmall->GetSelectedFont());
+  dialog->RecalculateSize();
 
-		// OnClose should handle that for us normally but it doesn't seems to do so
-		// We must save changes first
-		dialog->SaveDashboardConfig();
-		m_ArrayOfDashboardWindow.Clear();
-		m_ArrayOfDashboardWindow = dialog->m_Config;
-		// Reload the saved dashboard instruments
-		ApplyConfig();
-		// Save the Configuration
-		SaveConfig();
-		// Not exactly sure what this does. Pesumably if no dashboards are displayed, the toolbar icon is toggled/untoggled??
-		SetToolbarItemState(m_toolbar_item_id, GetDashboardWindowShownCount() != 0);
-	}
+#ifdef __OCPN__ANDROID__
+  dialog->GetHandle()->setStyleSheet(qtStyleSheet);
+#endif
 
-	// Invoke the dialog destructor
-	dialog->Destroy();
+#ifdef __OCPN__ANDROID__
+  wxWindow *ccwin = GetOCPNCanvasWindow();
+
+  if (ccwin) {
+    int xmax = ccwin->GetSize().GetWidth();
+    int ymax = ccwin->GetParent()
+                   ->GetSize()
+                   .GetHeight();  // This would be the Frame itself
+    dialog->SetSize(xmax, ymax);
+    dialog->Layout();
+
+    dialog->Move(0, 0);
+  }
+#endif
+
+  if (dialog->ShowModal() == wxID_OK) {
+    double scaler = 1.0;
+    if (OCPN_GetWinDIPScaleFactor() < 1.0)
+      scaler = 1.0 + OCPN_GetWinDIPScaleFactor() / 4;
+    scaler = wxMax(1.0, scaler);
+
+    g_USFontTitle = *(dialog->m_pFontPickerTitle->GetFontData());
+    g_FontTitle = *g_pUSFontTitle;
+    g_FontTitle.SetChosenFont(g_pUSFontTitle->GetChosenFont().Scaled(scaler));
+    g_FontTitle.SetColour(g_pUSFontTitle->GetColour());
+    g_USFontTitle = *g_pUSFontTitle;
+
+    g_USFontData = *(dialog->m_pFontPickerData->GetFontData());
+    g_FontData = *g_pUSFontData;
+    g_FontData.SetChosenFont(g_pUSFontData->GetChosenFont().Scaled(scaler));
+    g_FontData.SetColour(g_pUSFontData->GetColour());
+    g_USFontData = *g_pUSFontData;
+
+    g_USFontLabel = *(dialog->m_pFontPickerLabel->GetFontData());
+    g_FontLabel = *g_pUSFontLabel;
+    g_FontLabel.SetChosenFont(g_pUSFontLabel->GetChosenFont().Scaled(scaler));
+    g_FontLabel.SetColour(g_pUSFontLabel->GetColour());
+    g_USFontLabel = *g_pUSFontLabel;
+
+    g_USFontSmall = *(dialog->m_pFontPickerSmall->GetFontData());
+    g_FontSmall = *g_pUSFontSmall;
+    g_FontSmall.SetChosenFont(g_pUSFontSmall->GetChosenFont().Scaled(scaler));
+    g_FontSmall.SetColour(g_pUSFontSmall->GetColour());
+    g_USFontSmall = *g_pUSFontSmall;
+
+    // OnClose should handle that for us normally but it doesn't seems to do so
+    // We must save changes first
+    g_dashPrefWidth = dialog->GetSize().x;
+    g_dashPrefHeight = dialog->GetSize().y;
+
+    dialog->SaveDashboardConfig();
+    m_ArrayOfDashboardWindow.Clear();
+    m_ArrayOfDashboardWindow = dialog->m_Config;
+
+    ApplyConfig();
+    SaveConfig();
+    SetToolbarItemState(m_toolbar_item_id, GetDashboardWindowShownCount() != 0);
+  }
+  dialog->Destroy();
 }
 
+// Update our colour scheme if the user has set day, dusk or night mode
+void Dashboard::SetColorScheme(PI_ColorScheme cs) {
+  actualColourScheme = cs;
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindow *dashboard_window =
+        m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
+    if (dashboard_window) dashboard_window->SetColorScheme(cs);
+  }
+}
 
-void dashboard_pi::SetColorScheme(PI_ColorScheme cs) {
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
-		if (dashboard_window) {
-			dashboard_window->SetColorScheme(cs);
+// Return the number of dashboards displayed
+int Dashboard::GetDashboardWindowShownCount() {
+  int count = 0;
+
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
+    if (dashboard_window) {
+      wxAuiPaneInfo &pane = m_pauimgr->GetPane(dashboard_window);
+      if (pane.IsOk() && pane.IsShown()) {
+		count++;
+	  }
+    }
+  }
+  return count;
+}
+
+int Dashboard::GetToolbarItemId(void) {
+    return m_toolbar_item_id;
+}
+
+// Handle the wxAUI Pane Close event
+void Dashboard::OnPaneClose(wxAuiManagerEvent &event) {
+  // if name is unique, we should use it
+  DashboardWindow *dashboard_window = (DashboardWindow *)event.pane->window;
+  int count = 0;
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
+    DashboardWindow *d_w = cont->m_pDashboardWindow;
+    if (d_w) {
+      // we must not count this one because it is being closed
+      if (dashboard_window != d_w) {
+        wxAuiPaneInfo &pane = m_pauimgr->GetPane(d_w);
+        if (pane.IsOk() && pane.IsShown()) {
+			count++;
 		}
+      } else {
+        cont->m_bIsVisible = false;
+      }
     }
+  }
+  SetToolbarItemState(m_toolbar_item_id, count != 0);
+
+  event.Skip();
 }
 
-int dashboard_pi::GetToolbarItemId() { 
-	return m_toolbar_item_id; 
-}
+// Handle the toolbar button press event
+void Dashboard::OnToolbarToolCallback(int id) {
+  int count = GetDashboardWindowShownCount();
 
-int dashboard_pi::GetDashboardWindowShownCount() {
-    int cnt = 0;
-
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
-        if (dashboard_window) {
-            wxAuiPaneInfo &pane = m_pauimgr->GetPane(dashboard_window);
-			if (pane.IsOk() && pane.IsShown()) {
-				cnt++;
-			}
-        }
+  bool b_anyviz = false;
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
+    if (cont->m_bIsVisible) {
+      b_anyviz = true;
+      break;
     }
-    return cnt;
-}
+  }
 
-void dashboard_pi::OnPaneClose(wxAuiManagerEvent& event) {
-    // if name is unique, we should use it
-    DashboardWindow *dashboard_window = (DashboardWindow *) event.pane->window;
-    int cnt = 0;
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
-        DashboardWindow *d_w = cont->m_pDashboardWindow;
-        if (d_w) {
-            // we must not count this one because it is being closed
-            if (dashboard_window != d_w) {
-                wxAuiPaneInfo &pane = m_pauimgr->GetPane(d_w);
-				if (pane.IsOk() && pane.IsShown()) {
-					cnt++;
-				}
-            } else {
-                cont->m_bIsVisible = false;
-            }
-        }
-    }
-    SetToolbarItemState(m_toolbar_item_id, cnt != 0);
-
-    event.Skip();
-}
-
-void dashboard_pi::OnToolbarToolCallback(int id) {
-    int cnt = GetDashboardWindowShownCount();
-    bool b_anyviz = false;
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
-        if (cont->m_bIsVisible) {
-            b_anyviz = true;
-            break;
-        }
-    }
-
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
-        DashboardWindow *dashboard_window = cont->m_pDashboardWindow;
-        if (dashboard_window) {
-            wxAuiPaneInfo &pane = m_pauimgr->GetPane(dashboard_window);
-            if (pane.IsOk()) {
-                bool b_reset_pos = false;
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
+    DashboardWindow *dashboard_window = cont->m_pDashboardWindow;
+    if (dashboard_window) {
+      wxAuiPaneInfo &pane = m_pauimgr->GetPane(dashboard_window);
+      if (pane.IsOk()) {
+        bool b_reset_pos = false;
 
 #ifdef __WXMSW__
-                //  Support MultiMonitor setups which an allow negative window positions.
-                //  If the requested window title bar does not intersect any installed monitor,
-                //  then default to simple primary monitor positioning.
-                RECT frame_title_rect;
-                frame_title_rect.left = pane.floating_pos.x;
-                frame_title_rect.top = pane.floating_pos.y;
-                frame_title_rect.right = pane.floating_pos.x + pane.floating_size.x;
-                frame_title_rect.bottom = pane.floating_pos.y + 30;
+        //  Support MultiMonitor setups which an allow negative window
+        //  positions. If the requested window title bar does not intersect any
+        //  installed monitor, then default to simple primary monitor
+        //  positioning.
+        RECT frame_title_rect;
+        frame_title_rect.left = pane.floating_pos.x;
+        frame_title_rect.top = pane.floating_pos.y;
+        frame_title_rect.right = pane.floating_pos.x + pane.floating_size.x;
+        frame_title_rect.bottom = pane.floating_pos.y + 30;
 
-				if (NULL == MonitorFromRect(&frame_title_rect, MONITOR_DEFAULTTONULL)) {
-					b_reset_pos = true;
-				}
+        if (NULL == MonitorFromRect(&frame_title_rect, MONITOR_DEFAULTTONULL))
+          b_reset_pos = true;
 #else
 
-                //    Make sure drag bar (title bar) of window intersects wxClient Area of screen, with a little slop...
-                wxRect window_title_rect;// conservative estimate
-                window_title_rect.x = pane.floating_pos.x;
-                window_title_rect.y = pane.floating_pos.y;
-                window_title_rect.width = pane.floating_size.x;
-                window_title_rect.height = 30;
+        //    Make sure drag bar (title bar) of window intersects wxClient Area
+        //    of screen, with a little slop...
+        wxRect window_title_rect;  // conservative estimate
+        window_title_rect.x = pane.floating_pos.x;
+        window_title_rect.y = pane.floating_pos.y;
+        window_title_rect.width = pane.floating_size.x;
+        window_title_rect.height = 30;
 
-                wxRect ClientRect = wxGetClientDisplayRect();
-                ClientRect.Deflate(60, 60);// Prevent the new window from being too close to the edge
-				if (!ClientRect.Intersects(window_title_rect)) {
-					b_reset_pos = true;
-				}
+        wxRect ClientRect = wxGetClientDisplayRect();
+        ClientRect.Deflate(
+            60, 60);  // Prevent the new window from being too close to the edge
+        if (!ClientRect.Intersects(window_title_rect)) b_reset_pos = true;
 
 #endif
 
-				if (b_reset_pos) {
-					pane.FloatingPosition(50, 50);
-				}
+        if (b_reset_pos) pane.FloatingPosition(50, 50);
 
-                if (cnt == 0)
-                    if (b_anyviz)
-                        pane.Show(cont->m_bIsVisible);
-                    else {
-                       cont->m_bIsVisible = cont->m_bPersVisible;
-                       pane.Show(cont->m_bIsVisible);
-                    }
-                else
-                    pane.Show(false);
-            }
+        if (count == 0)
+          if (b_anyviz)
+            pane.Show(cont->m_bIsVisible);
+          else {
+            cont->m_bIsVisible = cont->m_bPersVisible;
+            pane.Show(cont->m_bIsVisible);
+          }
+        else
+          pane.Show(false);
+      }
 
-            //  This patch fixes a bug in wxAUIManager
-            //  FS#548
-            // Dropping a DashBoard Window right on top on the (supposedly fixed) chart bar window
-            // causes a resize of the chart bar, and the Dashboard window assumes some of its properties
-            // The Dashboard window is no longer grabbable...
-            // Workaround:  detect this case, and force the pane to be on a different Row.
-            // so that the display is corrected by toggling the dashboard off and back on.
-            if ((pane.dock_direction == wxAUI_DOCK_BOTTOM) && pane.IsDocked()) pane.Row(2);
-        }
-    }
-    // Toggle is handled by the toolbar but we must keep plugin manager b_toggle updated
-    // to actual status to ensure right status upon toolbar rebuild
-    SetToolbarItemState(m_toolbar_item_id, GetDashboardWindowShownCount() != 0);
-    m_pauimgr->Update();
-}
-
-void dashboard_pi::UpdateAuiStatus(void) {
-    // This method is called after the PlugIn is initialized
-    // and the frame has done its initial layout, possibly from a saved wxAuiManager "Perspective"
-    // It is a chance for the PlugIn to syncronize itself internally with the state of any Panes that
-    //  were added to the frame in the PlugIn ctor.
-
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
-        wxAuiPaneInfo &pane = m_pauimgr->GetPane(cont->m_pDashboardWindow);
-        // Initialize visible state as perspective is loaded now
-        cont->m_bIsVisible = (pane.IsOk() && pane.IsShown()); 
-    }
-    m_pauimgr->Update();
-    
-    // We use this callback here to keep the context menu selection in sync with the window state
-    SetToolbarItemState(m_toolbar_item_id, GetDashboardWindowShownCount() != 0);
-}
-
-// Loads a saved configuration
-bool dashboard_pi::LoadConfig(void) {
-    wxFileConfig *pConf = (wxFileConfig *) m_pconfig;
-
-    if (pConf) {
-        pConf->SetPath(_T("/PlugIns/Engine-Dashboard"));
-
-        wxString version;
-        pConf->Read(_T("Version"), &version, wxEmptyString);
-        
-		// Load the font configuration, note reuse of config variable
-		wxString config;
-        pConf->Read(_T("FontTitle"), &config, wxEmptyString);
-		
-		if (!config.IsEmpty()) {
-			g_pFontTitle->SetNativeFontInfo(config);
-		}
-        
-		pConf->Read(_T("FontData"), &config, wxEmptyString);
-        
-		if (!config.IsEmpty()) {
-			g_pFontData->SetNativeFontInfo(config);
-		}
-        
-		pConf->Read(_T("FontLabel"), &config, wxEmptyString);
-		
-		if (!config.IsEmpty()) {
-			g_pFontLabel->SetNativeFontInfo(config);
-		
-		}
-        pConf->Read(_T("FontSmall"), &config, wxEmptyString);
-		
-		if (!config.IsEmpty()) {
-			g_pFontSmall->SetNativeFontInfo(config);
-		}
-
-		// Load the maximum tachometer value, Temperature & Pressure units and dual engine status
-		pConf->Read(_T("TachometerMax"), &g_iDashTachometerMax, 6000);
-		pConf->Read(_T("TemperatureUnit"), &g_iDashTemperatureUnit, TEMPERATURE_CELSIUS);
-		pConf->Read(_T("PressureUnit"), &g_iDashPressureUnit, PRESSURE_BAR);
-		pConf->Read(_T("VolumeUnit"), &g_iDashVolumeUnit, VOLUME_LITRE);
-        pConf->Read(_T("DualEngine"), &g_bDualEngine, false);
-        pConf->Read(_T("TwentyFourVolt"), &g_bTwentyFourVolts, false);
-		
-		// Now retrieve the number of dashboard containers and their instruments
-        int d_cnt;
-        pConf->Read(_T("DashboardCount"), &d_cnt, -1);
-        
-	// TODO: Memory leak? We should destroy everything first
-        m_ArrayOfDashboardWindow.Clear();
-	// BUG BUG A version 1 configuration does not include a version value
-	// BUG BUG consider removing the following obsolete code.
-        if (version.IsEmpty() && d_cnt == -1) {
-            m_config_version = 1;
-            // Let's load version 1 or default settings.
-            int i_cnt;
-            pConf->Read(_T("InstrumentCount"), &i_cnt, -1);
-            wxArrayInt ar;
-            if (i_cnt != -1) {
-                for (int i = 0; i < i_cnt; i++) {
-                    int id;
-                    pConf->Read(wxString::Format(_T("Instrument%d"), i + 1), &id, -1);
-                    if (id != -1) ar.Add(id);
-                }
-            } else {
-                // Load a default instrument list, assumes single engined vessel
-                ar.Add(ID_DBP_MAIN_ENGINE_RPM);
-                ar.Add(ID_DBP_MAIN_ENGINE_OIL);
-                ar.Add(ID_DBP_MAIN_ENGINE_WATER);
-				ar.Add(ID_DBP_MAIN_ENGINE_VOLTS);
-            }
-	    
-	    // Note generate a unique GUID for each dashboard container
-            DashboardWindowContainer *cont = new DashboardWindowContainer(NULL, MakeName(), _("Engine-Dashboard"), _T("V"), ar);
-            cont->m_bPersVisible = true;
-            m_ArrayOfDashboardWindow.Add(cont);
-            
-        } else {
-            // Configuration Version 2
-            m_config_version = 2;
-            bool b_onePersisted = false;
-
-            for (int i = 0; i < d_cnt; i++) {
-                pConf->SetPath(wxString::Format(_T("/PlugIns/Engine-Dashboard/Dashboard%d"), i + 1));
-                wxString name;
-                pConf->Read(_T("Name"), &name, MakeName());
-                wxString caption;
-                pConf->Read(_T("Caption"), &caption, _("Dashboard"));
-                wxString orient;
-                pConf->Read(_T("Orientation"), &orient, _T("V"));
-                int i_cnt;
-                pConf->Read(_T("InstrumentCount"), &i_cnt, -1);
-                bool b_persist;
-                pConf->Read(_T("Persistence"), &b_persist, 1);
-                
-                wxArrayInt ar;
-                for (int i = 0; i < i_cnt; i++) {
-                    int id;
-                    pConf->Read(wxString::Format(_T("Instrument%d"), i + 1), &id, -1);
-                    if (id != -1) ar.Add(id);
-                }
-
-				// TODO: Do not add if GetCount == 0
-
-                DashboardWindowContainer *cont = new DashboardWindowContainer(NULL, name, caption, orient, ar);
-                cont->m_bPersVisible = b_persist;
-
-		if (b_persist) {
-		    b_onePersisted = true;
-		}
-                
-                m_ArrayOfDashboardWindow.Add(cont);
-
-            }
-            
-            // Make sure at least one dashboard is scheduled to be visible
-            if (m_ArrayOfDashboardWindow.Count() && !b_onePersisted){
-                DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(0);
-		if (cont) {
-		    cont->m_bPersVisible = true;
-		}
-            }   
-        }
-
-        return true;
-    } else
-        return false;
-}
-
-// Save the current configuration
-// Note this is a version 2 configuration
-bool dashboard_pi::SaveConfig(void) {
-    wxFileConfig *pConf = (wxFileConfig *) m_pconfig;
-
-    if (pConf) {
-        pConf->SetPath(_T("/PlugIns/Engine-Dashboard"));
-        pConf->Write(_T("Version"), _T("2"));
-        pConf->Write(_T("FontTitle"), g_pFontTitle->GetNativeFontInfoDesc());
-        pConf->Write(_T("FontData"), g_pFontData->GetNativeFontInfoDesc());
-        pConf->Write(_T("FontLabel"), g_pFontLabel->GetNativeFontInfoDesc());
-        pConf->Write(_T("FontSmall"), g_pFontSmall->GetNativeFontInfoDesc());
-
-	    pConf->Write(_T("TachometerMax"), g_iDashTachometerMax);
-	    pConf->Write(_T("TemperatureUnit"), g_iDashTemperatureUnit);
-	    pConf->Write(_T("PressureUnit"), g_iDashPressureUnit);
-		pConf->Write(_T("VolumeUnit"), g_iDashVolumeUnit);
-        pConf->Write(_T("DualEngine"), g_bDualEngine);
-        pConf->Write(_T("TwentyFourVolt"), g_bTwentyFourVolts);
-
-        pConf->Write(_T("DashboardCount"), (int) m_ArrayOfDashboardWindow.GetCount());
-        for (unsigned int i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-            DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
-            pConf->SetPath(wxString::Format(_T("/PlugIns/Engine-Dashboard/Dashboard%d"), i + 1));
-            pConf->Write(_T("Name"), cont->m_sName);
-            pConf->Write(_T("Caption"), cont->m_sCaption);
-            pConf->Write(_T("Orientation"), cont->m_sOrientation);
-            pConf->Write(_T("Persistence"), cont->m_bPersVisible);
-            pConf->Write(_T("InstrumentCount"), (int) cont->m_aInstrumentList.GetCount());
-	        for (unsigned int j = 0; j < cont->m_aInstrumentList.GetCount(); j++) {
-	    	    pConf->Write(wxString::Format(_T("Instrument%d"), j + 1), cont->m_aInstrumentList.Item(j));
-	        }
-        }
-
-        return true;
-	}
-
-	else {
-		return false;
-	}
-}
-
-// Load current dashboard containers and their instruments
-void dashboard_pi::ApplyConfig(void) {
-    // Reverse order to handle deletes
-    for (size_t i = m_ArrayOfDashboardWindow.GetCount(); i > 0; i--) {
-        DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i - 1);
-        int orient = (cont->m_sOrientation == _T("V") ? wxVERTICAL : wxHORIZONTAL);
-        if (cont->m_bIsDeleted) {
-            if (cont->m_pDashboardWindow) {
-                m_pauimgr->DetachPane(cont->m_pDashboardWindow);
-                cont->m_pDashboardWindow->Close();
-                cont->m_pDashboardWindow->Destroy();
-                cont->m_pDashboardWindow = NULL;
-            }
-            m_ArrayOfDashboardWindow.Remove(cont);
-            delete cont;
-
-        } else if(!cont->m_pDashboardWindow) {
-            // A new dashboard is created
-            cont->m_pDashboardWindow = new DashboardWindow(GetOCPNCanvasWindow(), wxID_ANY,
-                    m_pauimgr, this, orient, cont);
-            cont->m_pDashboardWindow->SetInstrumentList(cont->m_aInstrumentList);
-            bool vertical = orient == wxVERTICAL;
-            wxSize sz = cont->m_pDashboardWindow->GetMinSize();
-// Mac has a little trouble with initial Layout() sizing...
-#ifdef __WXOSX__
-            if (sz.x == 0)
-                sz.IncTo(wxSize(160, 388));
-#endif
-                wxAuiPaneInfo p = wxAuiPaneInfo().Name(cont->m_sName).Caption(cont->m_sCaption).CaptionVisible(false).TopDockable(
-                    !vertical).BottomDockable(!vertical).LeftDockable(vertical).RightDockable(vertical).MinSize(
-                        sz).BestSize(sz).FloatingSize(sz).FloatingPosition(100, 100).Float().Show(cont->m_bIsVisible).Gripper(false) ;
-            
-            m_pauimgr->AddPane(cont->m_pDashboardWindow, p);
-                //wxAuiPaneInfo().Name(cont->m_sName).Caption(cont->m_sCaption).CaptionVisible(false).TopDockable(
-               // !vertical).BottomDockable(!vertical).LeftDockable(vertical).RightDockable(vertical).MinSize(
-               // sz).BestSize(sz).FloatingSize(sz).FloatingPosition(100, 100).Float().Show(cont->m_bIsVisible));
-        } else {
-            wxAuiPaneInfo& pane = m_pauimgr->GetPane(cont->m_pDashboardWindow);
-            pane.Caption(cont->m_sCaption).Show(cont->m_bIsVisible);
-            if (!cont->m_pDashboardWindow->isInstrumentListEqual(cont->m_aInstrumentList)) {
-                cont->m_pDashboardWindow->SetInstrumentList(cont->m_aInstrumentList);
-                wxSize sz = cont->m_pDashboardWindow->GetMinSize();
-                pane.MinSize(sz).BestSize(sz).FloatingSize(sz);
-            }
-            if (cont->m_pDashboardWindow->GetSizerOrientation() != orient) {
-                cont->m_pDashboardWindow->ChangePaneOrientation(orient, false);
-            }
-        }
-    }
-    m_pauimgr->Update();
-}
-
-void dashboard_pi::PopulateContextMenu(wxMenu* menu) {
-    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
-        DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
-        wxMenuItem* item = menu->AppendCheckItem(i+1, cont->m_sCaption);
-        item->Check(cont->m_bIsVisible);
-    }
-}
-
-void dashboard_pi::ShowDashboard(size_t id, bool visible) {
-    if (id < m_ArrayOfDashboardWindow.GetCount()) {
-        DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(id);
-        m_pauimgr->GetPane(cont->m_pDashboardWindow).Show(visible);
-        cont->m_bIsVisible = visible;
-        cont->m_bPersVisible = visible;
+      // Restore size of docked pane
+      if (pane.IsShown() && pane.IsDocked()) {
+        pane.BestSize(cont->m_best_size);
         m_pauimgr->Update();
+      }
+
+      //  This patch fixes a bug in wxAUIManager
+      //  FS#548
+      // Dropping a DashBoard Window right on top on the (supposedly fixed)
+      // chart bar window causes a resize of the chart bar, and the Dashboard
+      // window assumes some of its properties The Dashboard window is no longer
+      // grabbable... Workaround:  detect this case, and force the pane to be on
+      // a different Row. so that the display is corrected by toggling the
+      // dashboard off and back on.
+      if ((pane.dock_direction == wxAUI_DOCK_BOTTOM) && pane.IsDocked())
+        pane.Row(2);
     }
+  }
+  // Toggle is handled by the toolbar but we must keep plugin manager b_toggle
+  // updated to actual status to ensure right status upon toolbar rebuild
+  SetToolbarItemState(m_toolbar_item_id,  GetDashboardWindowShownCount() != 0);
+  m_pauimgr->Update();
 }
 
+//    This method is called after the PlugIn is initialized
+//    and the frame has done its initial layout, possibly from a saved
+//    wxAuiManager "Perspective" It is a chance for the PlugIn to syncronize
+//    itself internally with the state of any Panes that were added to the
+//    frame in the PlugIn ctor.
+void Dashboard::UpdateAuiStatus(void) {
 
-// BUG BUG Should refactor and place into a separate class file
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
+    wxAuiPaneInfo &pane = m_pauimgr->GetPane(cont->m_pDashboardWindow);
+    // Initialize visible state as perspective is loaded now
+    cont->m_bIsVisible = (pane.IsOk() && pane.IsShown());
 
-//
-// DashboardPreferencesDialog
-//
-//
-
-DashboardPreferencesDialog::DashboardPreferencesDialog(wxWindow *parent, wxWindowID id, wxArrayOfDashboard config) :
-        wxDialog(parent, id, _("Engine Dashboard Settings"), wxDefaultPosition, wxDefaultSize,  wxDEFAULT_DIALOG_STYLE) {
-    Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(DashboardPreferencesDialog::OnCloseDialog), NULL, this);
-
-    // Copy original config
-    m_Config = wxArrayOfDashboard(config);
-    // Build Dashboard Page for Toolbox
-    int border_size = 2;
-
-    wxBoxSizer* itemBoxSizerMainPanel = new wxBoxSizer(wxVERTICAL);
-    SetSizer(itemBoxSizerMainPanel);
-
-    wxNotebook *itemNotebook = new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-            wxNB_TOP);
-    itemBoxSizerMainPanel->Add(itemNotebook, 1, wxALL | wxEXPAND, border_size);
-
-    wxPanel *itemPanelNotebook01 = new wxPanel(itemNotebook, wxID_ANY, wxDefaultPosition,
-            wxDefaultSize, wxTAB_TRAVERSAL);
-    wxFlexGridSizer *itemFlexGridSizer01 = new wxFlexGridSizer(2);
-    itemFlexGridSizer01->AddGrowableCol(1);
-    itemPanelNotebook01->SetSizer(itemFlexGridSizer01);
-    itemNotebook->AddPage(itemPanelNotebook01, _("Dashboard"));
-
-    wxBoxSizer *itemBoxSizer01 = new wxBoxSizer(wxVERTICAL);
-    itemFlexGridSizer01->Add(itemBoxSizer01, 1, wxEXPAND | wxTOP | wxLEFT, border_size);
-
-    wxImageList *imglist1 = new wxImageList(32, 32, true, 1);
-    imglist1->Add(*_img_dashboard);
-
-    m_pListCtrlDashboards = new wxListCtrl(itemPanelNotebook01, wxID_ANY, wxDefaultPosition,
-            wxSize(50, 200), wxLC_REPORT | wxLC_NO_HEADER | wxLC_SINGLE_SEL);
-    m_pListCtrlDashboards->AssignImageList(imglist1, wxIMAGE_LIST_SMALL);
-    m_pListCtrlDashboards->InsertColumn(0, _T(""));
-    m_pListCtrlDashboards->Connect(wxEVT_COMMAND_LIST_ITEM_SELECTED,
-            wxListEventHandler(DashboardPreferencesDialog::OnDashboardSelected), NULL, this);
-    m_pListCtrlDashboards->Connect(wxEVT_COMMAND_LIST_ITEM_DESELECTED,
-            wxListEventHandler(DashboardPreferencesDialog::OnDashboardSelected), NULL, this);
-    itemBoxSizer01->Add(m_pListCtrlDashboards, 1, wxEXPAND, 0);
-
-    wxBoxSizer *itemBoxSizer02 = new wxBoxSizer(wxHORIZONTAL);
-    itemBoxSizer01->Add(itemBoxSizer02);
-
-    m_pButtonAddDashboard = new wxBitmapButton(itemPanelNotebook01, wxID_ANY, *_img_plus,
-            wxDefaultPosition, wxDefaultSize);
-    itemBoxSizer02->Add(m_pButtonAddDashboard, 0, wxALIGN_CENTER, 2);
-    m_pButtonAddDashboard->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
-            wxCommandEventHandler(DashboardPreferencesDialog::OnDashboardAdd), NULL, this);
-    m_pButtonDeleteDashboard = new wxBitmapButton(itemPanelNotebook01, wxID_ANY, *_img_minus,
-            wxDefaultPosition, wxDefaultSize);
-    itemBoxSizer02->Add(m_pButtonDeleteDashboard, 0, wxALIGN_CENTER, 2);
-    m_pButtonDeleteDashboard->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
-            wxCommandEventHandler(DashboardPreferencesDialog::OnDashboardDelete), NULL, this);
-
-    m_pPanelDashboard = new wxPanel(itemPanelNotebook01, wxID_ANY, wxDefaultPosition,
-            wxDefaultSize, wxBORDER_SUNKEN);
-    itemFlexGridSizer01->Add(m_pPanelDashboard, 1, wxEXPAND | wxTOP | wxRIGHT, border_size);
-
-    wxBoxSizer* itemBoxSizer03 = new wxBoxSizer(wxVERTICAL);
-    m_pPanelDashboard->SetSizer(itemBoxSizer03);
-
-    wxStaticBox* itemStaticBox02 = new wxStaticBox(m_pPanelDashboard, wxID_ANY, _("Dashboard"));
-    wxStaticBoxSizer* itemStaticBoxSizer02 = new wxStaticBoxSizer(itemStaticBox02, wxHORIZONTAL);
-    itemBoxSizer03->Add(itemStaticBoxSizer02, 0, wxEXPAND | wxALL, border_size);
-    wxFlexGridSizer *itemFlexGridSizer = new wxFlexGridSizer(2);
-    itemFlexGridSizer->AddGrowableCol(1);
-    itemStaticBoxSizer02->Add(itemFlexGridSizer, 1, wxEXPAND | wxALL, 0);
-
-    m_pCheckBoxIsVisible = new wxCheckBox(m_pPanelDashboard, wxID_ANY, _("show this dashboard"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer->Add(m_pCheckBoxIsVisible, 0, wxEXPAND | wxALL, border_size);
-    wxStaticText *itemDummy01 = new wxStaticText(m_pPanelDashboard, wxID_ANY, _T(""));
-    itemFlexGridSizer->Add(itemDummy01, 0, wxEXPAND | wxALL, border_size);
-
-    wxStaticText* itemStaticText01 = new wxStaticText(m_pPanelDashboard, wxID_ANY, _("Caption:"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer->Add(itemStaticText01, 0, wxEXPAND | wxALL, border_size);
-    m_pTextCtrlCaption = new wxTextCtrl(m_pPanelDashboard, wxID_ANY, _T(""), wxDefaultPosition,
-            wxDefaultSize);
-    itemFlexGridSizer->Add(m_pTextCtrlCaption, 0, wxEXPAND | wxALL, border_size);
-
-    wxStaticText* itemStaticText02 = new wxStaticText(m_pPanelDashboard, wxID_ANY,
-            _("Orientation:"), wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer->Add(itemStaticText02, 0, wxEXPAND | wxALL, border_size);
-    m_pChoiceOrientation = new wxChoice(m_pPanelDashboard, wxID_ANY, wxDefaultPosition,
-            wxSize(120, -1));
-    m_pChoiceOrientation->Append(_("Vertical"));
-    m_pChoiceOrientation->Append(_("Horizontal"));
-    itemFlexGridSizer->Add(m_pChoiceOrientation, 0, wxALIGN_RIGHT | wxALL, border_size);
-
-    wxImageList *imglist = new wxImageList(20, 20, true, 2);
-    imglist->Add(*_img_instrument);
-    imglist->Add(*_img_dial);
-
-    wxStaticBox* itemStaticBox03 = new wxStaticBox(m_pPanelDashboard, wxID_ANY, _("Instruments"));
-    wxStaticBoxSizer* itemStaticBoxSizer03 = new wxStaticBoxSizer(itemStaticBox03, wxHORIZONTAL);
-    itemBoxSizer03->Add(itemStaticBoxSizer03, 1, wxEXPAND | wxALL, border_size);
-
-    m_pListCtrlInstruments = new wxListCtrl(m_pPanelDashboard, wxID_ANY, wxDefaultPosition,
-            wxSize(-1, 200), wxLC_REPORT | wxLC_NO_HEADER | wxLC_SINGLE_SEL);
-    itemStaticBoxSizer03->Add(m_pListCtrlInstruments, 1, wxEXPAND | wxALL, border_size);
-    m_pListCtrlInstruments->AssignImageList(imglist, wxIMAGE_LIST_SMALL);
-    m_pListCtrlInstruments->InsertColumn(0, _("Instruments"));
-    m_pListCtrlInstruments->Connect(wxEVT_COMMAND_LIST_ITEM_SELECTED,
-            wxListEventHandler(DashboardPreferencesDialog::OnInstrumentSelected), NULL, this);
-    m_pListCtrlInstruments->Connect(wxEVT_COMMAND_LIST_ITEM_DESELECTED,
-            wxListEventHandler(DashboardPreferencesDialog::OnInstrumentSelected), NULL, this);
-
-    wxBoxSizer* itemBoxSizer04 = new wxBoxSizer(wxVERTICAL);
-    itemStaticBoxSizer03->Add(itemBoxSizer04, 0, wxALIGN_TOP | wxALL, border_size);
-    m_pButtonAdd = new wxButton(m_pPanelDashboard, wxID_ANY, _("Add"), wxDefaultPosition,
-            wxSize(20, -1));
-    itemBoxSizer04->Add(m_pButtonAdd, 0, wxEXPAND | wxALL, border_size);
-    m_pButtonAdd->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
-            wxCommandEventHandler(DashboardPreferencesDialog::OnInstrumentAdd), NULL, this);
-
-/* TODO  Instrument Properties
-    m_pButtonEdit = new wxButton(m_pPanelDashboard, wxID_ANY, _("Edit"), wxDefaultPosition,
-            wxDefaultSize);
-    itemBoxSizer04->Add(m_pButtonEdit, 0, wxEXPAND | wxALL, border_size);
-    m_pButtonEdit->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
-            wxCommandEventHandler(DashboardPreferencesDialog::OnInstrumentEdit), NULL, this);
-*/
-    m_pButtonDelete = new wxButton(m_pPanelDashboard, wxID_ANY, _("Delete"), wxDefaultPosition,
-            wxSize(20, -1));
-    itemBoxSizer04->Add(m_pButtonDelete, 0, wxEXPAND | wxALL, border_size);
-    m_pButtonDelete->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
-            wxCommandEventHandler(DashboardPreferencesDialog::OnInstrumentDelete), NULL, this);
-    itemBoxSizer04->AddSpacer(10);
-    m_pButtonUp = new wxButton(m_pPanelDashboard, wxID_ANY, _("Up"), wxDefaultPosition,
-            wxDefaultSize);
-    itemBoxSizer04->Add(m_pButtonUp, 0, wxEXPAND | wxALL, border_size);
-    m_pButtonUp->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
-            wxCommandEventHandler(DashboardPreferencesDialog::OnInstrumentUp), NULL, this);
-    m_pButtonDown = new wxButton(m_pPanelDashboard, wxID_ANY, _("Down"), wxDefaultPosition,
-            wxDefaultSize);
-    itemBoxSizer04->Add(m_pButtonDown, 0, wxEXPAND | wxALL, border_size);
-    m_pButtonDown->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
-            wxCommandEventHandler(DashboardPreferencesDialog::OnInstrumentDown), NULL, this);
-
-    wxPanel *itemPanelNotebook02 = new wxPanel(itemNotebook, wxID_ANY, wxDefaultPosition,
-            wxDefaultSize, wxTAB_TRAVERSAL);
-    wxBoxSizer* itemBoxSizer05 = new wxBoxSizer(wxVERTICAL);
-    itemPanelNotebook02->SetSizer(itemBoxSizer05);
-    itemNotebook->AddPage(itemPanelNotebook02, _("Appearance"));
-
-    wxStaticBox* itemStaticBoxFonts = new wxStaticBox(itemPanelNotebook02, wxID_ANY, _("Fonts"));
-    wxStaticBoxSizer* itemStaticBoxSizer01 = new wxStaticBoxSizer(itemStaticBoxFonts, wxHORIZONTAL);
-    itemBoxSizer05->Add(itemStaticBoxSizer01, 0, wxEXPAND | wxALL, border_size);
-    wxFlexGridSizer *itemFlexGridSizer03 = new wxFlexGridSizer(2);
-    itemFlexGridSizer03->AddGrowableCol(1);
-    itemStaticBoxSizer01->Add(itemFlexGridSizer03, 1, wxEXPAND | wxALL, 0);
-    wxStaticText* itemStaticText04 = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Title:"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer03->Add(itemStaticText04, 0, wxEXPAND | wxALL, border_size);
-    m_pFontPickerTitle = new wxFontPickerCtrl(itemPanelNotebook02, wxID_ANY, *g_pFontTitle,
-            wxDefaultPosition, wxDefaultSize);
-    itemFlexGridSizer03->Add(m_pFontPickerTitle, 0, wxALIGN_RIGHT | wxALL, 0);
-    wxStaticText* itemStaticText05 = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Data:"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer03->Add(itemStaticText05, 0, wxEXPAND | wxALL, border_size);
-    m_pFontPickerData = new wxFontPickerCtrl(itemPanelNotebook02, wxID_ANY, *g_pFontData,
-            wxDefaultPosition, wxDefaultSize);
-    itemFlexGridSizer03->Add(m_pFontPickerData, 0, wxALIGN_RIGHT | wxALL, 0);
-    wxStaticText* itemStaticText06 = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Label:"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer03->Add(itemStaticText06, 0, wxEXPAND | wxALL, border_size);
-    m_pFontPickerLabel = new wxFontPickerCtrl(itemPanelNotebook02, wxID_ANY, *g_pFontLabel,
-            wxDefaultPosition, wxDefaultSize);
-    itemFlexGridSizer03->Add(m_pFontPickerLabel, 0, wxALIGN_RIGHT | wxALL, 0);
-    wxStaticText* itemStaticText07 = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Small:"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer03->Add(itemStaticText07, 0, wxEXPAND | wxALL, border_size);
-    m_pFontPickerSmall = new wxFontPickerCtrl(itemPanelNotebook02, wxID_ANY, *g_pFontSmall,
-            wxDefaultPosition, wxDefaultSize);
-    itemFlexGridSizer03->Add(m_pFontPickerSmall, 0, wxALIGN_RIGHT | wxALL, 0);
-	
-	// wxColourPickerCtrl
-    wxStaticBox* itemStaticBoxUnits = new wxStaticBox(itemPanelNotebook02, wxID_ANY, _("Units, Ranges, Formats"));
-    wxStaticBoxSizer* itemStaticBoxSizer04 = new wxStaticBoxSizer(itemStaticBoxUnits, wxHORIZONTAL);
-    itemBoxSizer05->Add(itemStaticBoxSizer04, 0, wxEXPAND | wxALL, border_size);
-    wxFlexGridSizer *itemFlexGridSizer04 = new wxFlexGridSizer(2);
-    itemFlexGridSizer04->AddGrowableCol(1);
-    itemStaticBoxSizer04->Add(itemFlexGridSizer04, 1, wxEXPAND | wxALL, 0);
-
-	/*wxPanel* itemPanelNotebook03 = new wxPanel(itemNotebook, wxID_ANY, wxDefaultPosition,
-		wxDefaultSize, wxTAB_TRAVERSAL);
-	wxBoxSizer* itemBoxSizer06 = new wxBoxSizer(wxVERTICAL);
-	itemPanelNotebook03->SetSizer(itemBoxSizer06);
-	itemNotebook->AddPage(itemPanelNotebook03, _("Units"));*/
-
-    
-    // Sets the maximum RPM in the tachometer control
-    wxStaticText* itemStaticTextTachometerM = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Tachometer Maximum RPM:"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer04->Add(itemStaticTextTachometerM, 0, wxEXPAND | wxALL, border_size);
-    m_pSpinSpeedMax = new wxSpinCtrl(itemPanelNotebook02, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, 10000, g_iDashTachometerMax);
-    itemFlexGridSizer04->Add(m_pSpinSpeedMax, 0, wxALIGN_RIGHT | wxALL, 0);
-
-    // Enable the user to specify the temperature display in Celsius or Fahrenheit
-    wxStaticText* itemStaticTextTemperatureU = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Temperature units:"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer04->Add(itemStaticTextTemperatureU, 0, wxEXPAND | wxALL, border_size);
-    wxString m_TemperatureUnitChoices[] = { _("Celsius"), _("Fahrenheit") };
-    int m_TemperatureUnitNChoices = sizeof(m_TemperatureUnitChoices) / sizeof(wxString);
-    m_pChoiceTemperatureUnit = new wxChoice(itemPanelNotebook02, wxID_ANY, wxDefaultPosition, wxDefaultSize, m_TemperatureUnitNChoices, m_TemperatureUnitChoices, 0);
-    m_pChoiceTemperatureUnit->SetSelection(g_iDashTemperatureUnit);
-    itemFlexGridSizer04->Add(m_pChoiceTemperatureUnit, 0, wxALIGN_RIGHT | wxALL, 0);
-
-    // Enable the user to specify the engine oil pressure display in Bar or PSI
-    wxStaticText* itemStaticTextPressureU = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Pressure units:"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer04->Add(itemStaticTextPressureU, 0, wxEXPAND | wxALL, border_size);
-    wxString m_PressureUnitChoices[] = { _("Bar"), _("PSI") };
-    int m_PressureUnitNChoices = sizeof(m_PressureUnitChoices) / sizeof(wxString);
-    m_pChoicePressureUnit = new wxChoice(itemPanelNotebook02, wxID_ANY, wxDefaultPosition, wxDefaultSize, m_PressureUnitNChoices, m_PressureUnitChoices, 0);
-    m_pChoicePressureUnit->SetSelection(g_iDashPressureUnit);
-    itemFlexGridSizer04->Add(m_pChoicePressureUnit, 0, wxALIGN_RIGHT | wxALL, 0);
-
-	// Enable the user to specify volumes in litres or gallons
-	wxStaticText* itemStaticTextVolumeU = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Volume units:"),
-		wxDefaultPosition, wxDefaultSize, 0);
-	itemFlexGridSizer04->Add(itemStaticTextVolumeU, 0, wxEXPAND | wxALL, border_size);
-	wxString m_VolumeUnitChoices[] = { _("Litres"), _("Gallons") };
-	int m_VolumeUnitNChoices = sizeof(m_VolumeUnitChoices) / sizeof(wxString);
-	m_pChoiceVolumeUnit = new wxChoice(itemPanelNotebook02, wxID_ANY, wxDefaultPosition, wxDefaultSize, m_VolumeUnitNChoices, m_VolumeUnitChoices, 0);
-	m_pChoiceVolumeUnit->SetSelection(g_iDashVolumeUnit);
-	itemFlexGridSizer04->Add(m_pChoiceVolumeUnit, 0, wxALIGN_RIGHT | wxALL, 0);
-
-	// Enable the user to configure voltage as 12 or 24 volts
-    wxStaticText* itemStaticTwentyFourVolts = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Enable 24 volt range for voltmeter. Unchecked defaults to 12 volt:"),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer04->Add(itemStaticTwentyFourVolts, 0, wxEXPAND | wxALL, border_size);
-    m_pCheckBoxTwentyFourVolts = new wxCheckBox(itemPanelNotebook02, wxID_ANY, _("24 volt DC"),
-            wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-    m_pCheckBoxTwentyFourVolts->SetValue(g_bTwentyFourVolts);
-    itemFlexGridSizer04->Add(m_pCheckBoxTwentyFourVolts, 0, wxALIGN_RIGHT | wxALL, 0);
-
-	// Enable the user to specify of the vessel is dual engine (interprets engine instance 0 as pport engine)
-    wxStaticText* itemStaticTextDualEngine = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("For dual engines, instance 0 is the port engine\nand instance 1 is the starboard engine.\nFor single engines, instance 0 is the main engine."),
-            wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer04->Add(itemStaticTextDualEngine, 0, wxEXPAND | wxALL, border_size);
-    m_pCheckBoxDualengine = new wxCheckBox(itemPanelNotebook02, wxID_ANY, _("Dual Engine Vessel"),
-            wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT);
-    m_pCheckBoxDualengine->SetValue(g_bDualEngine);
-    itemFlexGridSizer04->Add(m_pCheckBoxDualengine, 0, wxALIGN_RIGHT | wxALL, 0);
-
-	wxStdDialogButtonSizer* DialogButtonSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL);
-    itemBoxSizerMainPanel->Add(DialogButtonSizer, 0, wxALIGN_RIGHT | wxALL, 5);
-
-    curSel = -1;
-    for (size_t i = 0; i < m_Config.GetCount(); i++) {
-        m_pListCtrlDashboards->InsertItem(i, 0);
-        // Using data to store m_Config index for managing deletes
-        m_pListCtrlDashboards->SetItemData(i, i);
+    // Correct for incomplete AUIManager perspective when docked dashboard is
+    //  not visible at app close.
+    if (pane.IsDocked()) {
+      if ((cont->m_persist_size.x > 50) && (cont->m_persist_size.y > 50))
+        cont->m_pDashboardWindow->SetSize(cont->m_persist_size);
     }
-    m_pListCtrlDashboards->SetColumnWidth(0, wxLIST_AUTOSIZE);
 
-    UpdateDashboardButtonsState();
-    UpdateButtonsState();
-    SetMinSize(wxSize(450, -1));
-    Fit();
-}
-
-void DashboardPreferencesDialog::OnCloseDialog(wxCloseEvent& event) {
-    SaveDashboardConfig();
-    event.Skip();
-}
-
-void DashboardPreferencesDialog::SaveDashboardConfig(void) {
-	
-    g_iDashTachometerMax = m_pSpinSpeedMax->GetValue();
-    g_iDashTemperatureUnit = m_pChoiceTemperatureUnit->GetSelection();
-    g_iDashPressureUnit = m_pChoicePressureUnit->GetSelection();
-	g_iDashVolumeUnit = m_pChoiceVolumeUnit->GetSelection();
-    g_bDualEngine = m_pCheckBoxDualengine->IsChecked();
-    g_bTwentyFourVolts = m_pCheckBoxTwentyFourVolts->IsChecked();
-    
-    if (curSel != -1) {
-        DashboardWindowContainer *cont = m_Config.Item(curSel);
-        cont->m_bIsVisible = m_pCheckBoxIsVisible->IsChecked();
-        cont->m_sCaption = m_pTextCtrlCaption->GetValue();
-        cont->m_sOrientation = m_pChoiceOrientation->GetSelection() == 0 ? _T("V") : _T("H");
-        cont->m_aInstrumentList.Clear();
-        for (int i = 0; i < m_pListCtrlInstruments->GetItemCount(); i++)
-            cont->m_aInstrumentList.Add((int) m_pListCtrlInstruments->GetItemData(i));
+#ifdef __WXQT__
+    if (pane.IsShown()) {
+      pane.Show(false);
+      m_pauimgr->Update();
+      pane.Show(true);
+      m_pauimgr->Update();
     }
+#endif
+  }
+  m_pauimgr->Update();
+
+  // Synchronize toolbar button state
+  SetToolbarItemState(m_toolbar_item_id, GetDashboardWindowShownCount() != 0);
 }
 
-void DashboardPreferencesDialog::OnDashboardSelected(wxListEvent& event) {
-    SaveDashboardConfig();
-    UpdateDashboardButtonsState();
-}
+// Load the plugin configuration
+bool Dashboard::LoadConfig(void) {
+  wxFileConfig *pConf = (wxFileConfig *)m_pconfig;
 
-void DashboardPreferencesDialog::UpdateDashboardButtonsState() {
-    long item = -1;
-    item = m_pListCtrlDashboards->GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    bool enable = (item != -1);
+  if (pConf) {
+    pConf->SetPath("/PlugIns/Engine-Dashboard");
 
-    // Disable the Dashboard Delete button if the parent(Dashboard) of this dialog is selected.
-    bool delete_enable = enable;
-    if (item != -1) {
-        int sel = m_pListCtrlDashboards->GetItemData(item);
-        DashboardWindowContainer *cont = m_Config.Item(sel);
-        DashboardWindow *dash_sel = cont->m_pDashboardWindow;
-        if(dash_sel == GetParent())
-            delete_enable = false;
-    }
-    m_pButtonDeleteDashboard->Enable(delete_enable);
+    wxString version;
+    pConf->Read("Version", &version, wxEmptyString);
+    wxString config;
 
-    m_pPanelDashboard->Enable(enable);
+    // Set some sensible defaults
+    wxString TitleFont;
+    wxString DataFont;
+    wxString LabelFont;
+    wxString SmallFont;
 
-    if (item != -1) {
-        curSel = m_pListCtrlDashboards->GetItemData(item);
-        DashboardWindowContainer *cont = m_Config.Item(curSel);
-        m_pCheckBoxIsVisible->SetValue(cont->m_bIsVisible);
-        m_pTextCtrlCaption->SetValue(cont->m_sCaption);
-        m_pChoiceOrientation->SetSelection(cont->m_sOrientation == _T("V") ? 0 : 1);
-        m_pListCtrlInstruments->DeleteAllItems();
-        for (size_t i = 0; i < cont->m_aInstrumentList.GetCount(); i++) {
-            wxListItem item;
-            GetListItemForInstrument(item, cont->m_aInstrumentList.Item(i));
-            item.SetId(m_pListCtrlInstruments->GetItemCount());
-            m_pListCtrlInstruments->InsertItem(item);
+#ifdef __OCPN__ANDROID__
+    TitleFont = "Roboto,16,-1,5,50,0,0,0,0,0";
+    DataFont = "Roboto,16,-1,5,50,0,0,0,0,0";
+    LabelFont = "Roboto,16,-1,5,50,0,0,0,0,0";
+    SmallFont = "Roboto,14,-1,5,50,0,0,0,0,0";
+#else
+    TitleFont = g_pFontTitle->GetChosenFont().GetNativeFontInfoDesc();
+    DataFont = g_pFontData->GetChosenFont().GetNativeFontInfoDesc();
+    LabelFont = g_pFontLabel->GetChosenFont().GetNativeFontInfoDesc();
+    SmallFont = g_pFontSmall->GetChosenFont().GetNativeFontInfoDesc();
+#endif
+
+    double scaler = 1.0;
+    wxFont DummyFont;
+    wxFont *pDF = &DummyFont;
+
+    if (OCPN_GetWinDIPScaleFactor() < 1.0)
+      scaler = 1.0 + OCPN_GetWinDIPScaleFactor() / 4;
+    scaler = wxMax(1.0, scaler);
+
+    g_pFontTitle = &g_FontTitle;
+    pConf->Read("FontTitle", &config, TitleFont);
+    LoadFont(&pDF, config);
+    wxFont DummyFontTitle = *pDF;
+    pConf->Read("ColorTitle", &config, "#000000");
+    wxColour DummyColor(config);
+    g_pUSFontTitle->SetChosenFont(DummyFontTitle);
+    g_pUSFontTitle->SetColour(DummyColor);
+
+    g_FontTitle = *g_pUSFontTitle;
+    g_FontTitle.SetChosenFont(g_pUSFontTitle->GetChosenFont().Scaled(scaler));
+    g_USFontTitle = *g_pUSFontTitle;
+
+    g_pFontData = &g_FontData;
+    pConf->Read("FontData", &config, DataFont);
+    LoadFont(&pDF, config);
+    wxFont DummyFontData = *pDF;
+    pConf->Read("ColorData", &config, "#000000");
+    DummyColor.Set(config);
+    g_pUSFontData->SetChosenFont(DummyFontData);
+    g_pUSFontData->SetColour(DummyColor);
+    g_FontData = *g_pUSFontData;
+    g_FontData.SetChosenFont(g_pUSFontData->GetChosenFont().Scaled(scaler));
+    g_USFontData = *g_pUSFontData;
+
+    pConf->Read("ForceBackgroundColor", &g_ForceBackgroundColor, 0);
+    pConf->Read("BackgroundColor", &config, "DASHL");
+    g_BackgroundColor.Set(config);
+
+    int alignment;
+    pConf->Read("TitleAlignment", &alignment, (int)wxALIGN_LEFT);
+    g_TitleAlignment = (wxAlignment)alignment;
+    if (g_TitleAlignment == wxALIGN_INVALID) g_TitleAlignment = wxALIGN_LEFT;
+    pConf->Read("TitleMargin", &g_iTitleMargin, 5);
+    pConf->Read("DataShowUnit", &g_bShowUnit, true);
+    pConf->Read("DataAlignment", &alignment, (int)wxALIGN_LEFT);
+    g_DataAlignment = (wxAlignment)alignment;
+    if (g_DataAlignment == wxALIGN_INVALID) g_DataAlignment = wxALIGN_LEFT;
+    pConf->Read("DataMargin", &g_iDataMargin, 10);
+    pConf->Read("InstrumentSpacing", &g_iInstrumentSpacing, 0);
+    pConf->Read("TitleVerticalOffset", &g_TitleVerticalOffset, 0.0);
+
+    g_pFontLabel = &g_FontLabel;
+    pConf->Read("FontLabel", &config, LabelFont);
+    LoadFont(&pDF, config);
+    wxFont DummyFontLabel = *pDF;
+    pConf->Read("ColorLabel", &config, "#000000");
+    DummyColor.Set(config);
+    g_pUSFontLabel->SetChosenFont(DummyFontLabel);
+    g_pUSFontLabel->SetColour(DummyColor);
+    g_FontLabel = *g_pUSFontLabel;
+    g_FontLabel.SetChosenFont(g_pUSFontLabel->GetChosenFont().Scaled(scaler));
+    g_USFontLabel = *g_pUSFontLabel;
+
+    g_pFontSmall = &g_FontSmall;
+    pConf->Read("FontSmall", &config, SmallFont);
+    LoadFont(&pDF, config);
+    wxFont DummyFontSmall = *pDF;
+    pConf->Read("ColorSmall", &config, "#000000");
+    DummyColor.Set(config);
+    g_pUSFontSmall->SetChosenFont(DummyFontSmall);
+    g_pUSFontSmall->SetColour(DummyColor);
+    g_FontSmall = *g_pUSFontSmall;
+    g_FontSmall.SetChosenFont(g_pUSFontSmall->GetChosenFont().Scaled(scaler));
+    g_USFontSmall = *g_pUSFontSmall;
+
+	// Load the maximum tachometer value, Temperature & Pressure units and dual engine status
+	pConf->Read(_T("TachometerMax"), &g_tachometerMax, 6000);
+	pConf->Read(_T("TemperatureUnit"), &g_temperatureUnit, TEMPERATURE_CELSIUS);
+	pConf->Read(_T("PressureUnit"), &g_pressureUnit, PRESSURE_BAR);
+	pConf->Read(_T("DualEngine"), &g_dualEngine, false);
+	pConf->Read(_T("TwentyFourVolt"), &g_twentyFourVolts, false);
+	pConf->Read(_T("HighContrast"), &g_highContrast, false);
+
+    pConf->Read("PrefWidth", &g_dashPrefWidth, 0);
+    pConf->Read("PrefHeight", &g_dashPrefHeight, 0);
+
+    int d_cnt;
+    pConf->Read("DashboardCount", &d_cnt, -1);
+    // TODO: Memory leak? We should destroy everything first
+    m_ArrayOfDashboardWindow.Clear();
+    if (version.IsEmpty() && d_cnt == -1) {
+      m_config_version = 1;
+      // Let's load version 1 or default settings.
+      int i_cnt;
+      pConf->Read("InstrumentCount", &i_cnt, -1);
+      wxArrayInt ar;
+      wxArrayOfInstrumentProperties Property;
+      if (i_cnt != -1) {
+        for (int i = 0; i < i_cnt; i++) {
+          int id;
+          pConf->Read(wxString::Format("Instrument%d", i + 1), &id, -1);
+          if (id != -1) ar.Add(id);
         }
+      } else {
+        // This is the default instrument list
+        ar.Add(ID_DBP_MAIN_ENGINE_RPM);
+        ar.Add(ID_DBP_MAIN_ENGINE_OIL);
+        ar.Add(ID_DBP_MAIN_ENGINE_WATER);
+      }
 
-        m_pListCtrlInstruments->SetColumnWidth(0, wxLIST_AUTOSIZE);
+      DashboardWindowContainer *cont = new DashboardWindowContainer(
+          NULL, MakeName(), _("Instruments"), "V", ar, Property);
+      cont->m_bPersVisible = true;
+      m_ArrayOfDashboardWindow.Add(cont);
+
     } else {
-        curSel = -1;
-        m_pCheckBoxIsVisible->SetValue(false);
-        m_pTextCtrlCaption->SetValue(_T(""));
-        m_pChoiceOrientation->SetSelection(0);
-        m_pListCtrlInstruments->DeleteAllItems();
-    }
-	// UpdateButtonsState();
-}
+      // Version 2
+      m_config_version = 2;
+      bool b_onePersisted = false;
+      wxSize best_size;
+      wxSize persist_size;
+      for (int k = 0; k < d_cnt; k++) {
+        pConf->SetPath(
+            wxString::Format("/PlugIns/Engine-Dashboard/Dashboard%d", k + 1));
+        wxString name;
+        pConf->Read("Name", &name, MakeName());
+        wxString caption;
+        pConf->Read("Caption", &caption, _("Instruments"));
+        wxString orient;
+        pConf->Read("Orientation", &orient, "V");
+        int i_cnt;
+        pConf->Read("InstrumentCount", &i_cnt, -1);
+        bool b_persist;
+        pConf->Read("Persistence", &b_persist, 1);
+        int val;
+        pConf->Read("BestSizeX", &val, DefaultWidth);
+        best_size.x = val;
+        pConf->Read("BestSizeY", &val, DefaultWidth);
+        best_size.y = val;
+        pConf->Read("PersistSizeX", &val, DefaultWidth);
+        persist_size.x = val;
+        pConf->Read("PersistSizeY", &val, DefaultWidth);
+        persist_size.y = val;
 
-void DashboardPreferencesDialog::OnDashboardAdd(wxCommandEvent& event) {
-    int idx = m_pListCtrlDashboards->GetItemCount();
-    m_pListCtrlDashboards->InsertItem(idx, 0);
-    // Data is index in m_Config
-    m_pListCtrlDashboards->SetItemData(idx, m_Config.GetCount());
-    wxArrayInt ar;
-    DashboardWindowContainer *dwc = new DashboardWindowContainer(NULL, MakeName(), _("Dashboard"), _T("V"), ar);
-    dwc->m_bIsVisible = true;
-    m_Config.Add(dwc);
-}
+        wxArrayInt ar;
+        wxArrayOfInstrumentProperties Property;
+        for (int i = 0; i < i_cnt; i++) {
+          int id;
+          pConf->Read(wxString::Format("Instrument%d", i + 1), &id, -1);
+          if (id != -1) {
+            ar.Add(id);
+            InstrumentProperties *instp;
+            if (pConf->Exists(wxString::Format("InstTitleFont%d", i + 1))) {
+              instp = new InstrumentProperties(id, i);
 
-void DashboardPreferencesDialog::OnDashboardDelete(wxCommandEvent& event) {
-    long itemID = -1;
-    itemID = m_pListCtrlDashboards->GetNextItem(itemID, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+              pConf->Read(wxString::Format("InstTitleFont%d", i + 1), &config,
+                          TitleFont);
+              LoadFont(&pDF, config);
+              wxFont DummyFontTitleA = *pDF;
+              pConf->Read(wxString::Format("InstTitleColor%d", i + 1), &config,
+                          "#000000");
+              DummyColor.Set(config);
+              instp->m_USTitleFont.SetChosenFont(DummyFontTitleA);
+              instp->m_USTitleFont.SetColour(DummyColor);
+              instp->m_TitleFont = instp->m_USTitleFont;
+              instp->m_TitleFont.SetChosenFont(
+                  instp->m_USTitleFont.GetChosenFont().Scaled(scaler));
 
-    int idx = m_pListCtrlDashboards->GetItemData(itemID);
-    m_pListCtrlDashboards->DeleteItem(itemID);
-    m_Config.Item(idx)->m_bIsDeleted = true;
-    UpdateDashboardButtonsState();
-}
+              pConf->Read(wxString::Format("InstDataShowUnit%d", i + 1),
+                          &instp->m_ShowUnit, -1);
+              pConf->Read(wxString::Format("InstDataMargin%d", i + 1),
+                          &instp->m_DataMargin, -1);
+              pConf->Read(wxString::Format("InstDataAlignment%d", i + 1),
+                          &alignment, (int)wxALIGN_INVALID);
+              instp->m_DataAlignment = (wxAlignment)alignment;
+              pConf->Read(wxString::Format("InstInstrumentSpacing%d", i + 1),
+                          &instp->m_InstrumentSpacing, -1);
+              pConf->Read(wxString::Format("InstDataFormat%d", i + 1),
+                          &instp->m_Format, "");
+              pConf->Read(wxString::Format("InstTitle%d", i + 1),
+                          &instp->m_Title, "");
 
-void DashboardPreferencesDialog::OnInstrumentSelected(wxListEvent& event) {
-    UpdateButtonsState();
-}
+              pConf->Read(wxString::Format("InstDataFont%d", i + 1), &config,
+                          DataFont);
+              LoadFont(&pDF, config);
+              wxFont DummyFontDataA = *pDF;
+              pConf->Read(wxString::Format("InstDataColor%d", i + 1), &config,
+                          "#000000");
+              DummyColor.Set(config);
+              instp->m_USDataFont.SetChosenFont(DummyFontDataA);
+              instp->m_USDataFont.SetColour(DummyColor);
+              instp->m_DataFont = instp->m_USDataFont;
+              instp->m_DataFont.SetChosenFont(
+                  instp->m_USDataFont.GetChosenFont().Scaled(scaler));
 
-void DashboardPreferencesDialog::UpdateButtonsState() {
-    long item = -1;
-    item = m_pListCtrlInstruments->GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    bool enable = (item != -1);
+              pConf->Read(wxString::Format("InstLabelFont%d", i + 1), &config,
+                          LabelFont);
+              LoadFont(&pDF, config);
+              wxFont DummyFontLabelA = *pDF;
+              pConf->Read(wxString::Format("InstLabelColor%d", i + 1), &config,
+                          "#000000");
+              DummyColor.Set(config);
+              instp->m_USLabelFont.SetChosenFont(DummyFontLabelA);
+              instp->m_USLabelFont.SetColour(DummyColor);
+              instp->m_LabelFont = instp->m_USLabelFont;
+              instp->m_LabelFont.SetChosenFont(
+                  instp->m_USLabelFont.GetChosenFont().Scaled(scaler));
 
-    m_pButtonDelete->Enable(enable);
-	// m_pButtonEdit->Enable(false); // TODO: Properties
-    m_pButtonUp->Enable(item > 0);
-    m_pButtonDown->Enable(item != -1 && item < m_pListCtrlInstruments->GetItemCount() - 1);
-}
+              pConf->Read(wxString::Format("InstSmallFont%d", i + 1), &config,
+                          SmallFont);
+              LoadFont(&pDF, config);
+              wxFont DummyFontSmallA = *pDF;
+              pConf->Read(wxString::Format("InstSmallColor%d", i + 1), &config,
+                          "#000000");
+              DummyColor.Set(config);
+              instp->m_USSmallFont.SetChosenFont(DummyFontSmallA);
+              instp->m_USSmallFont.SetColour(DummyColor);
+              instp->m_SmallFont = instp->m_USSmallFont;
+              instp->m_SmallFont.SetChosenFont(
+                  instp->m_USSmallFont.GetChosenFont().Scaled(scaler));
 
-void DashboardPreferencesDialog::OnInstrumentAdd(wxCommandEvent& event) {
-    AddInstrumentDlg pdlg((wxWindow *) event.GetEventObject(), wxID_ANY);
+              pConf->Read(wxString::Format("TitleBackColor%d", i + 1), &config,
+                          "DASHL");
+              instp->m_TitleBackgroundColour.Set(config);
 
-    if (pdlg.ShowModal() == wxID_OK) {
-        wxListItem item;
-        GetListItemForInstrument(item, pdlg.GetInstrumentAdded());
-        item.SetId(m_pListCtrlInstruments->GetItemCount());
-        m_pListCtrlInstruments->InsertItem(item);
-        m_pListCtrlInstruments->SetColumnWidth(0, wxLIST_AUTOSIZE);
-        UpdateButtonsState();
-    }
-}
+              pConf->Read(wxString::Format("DataBackColor%d", i + 1), &config,
+                          "DASHB");
+              instp->m_DataBackgroundColour.Set(config);
 
-void DashboardPreferencesDialog::OnInstrumentDelete(wxCommandEvent& event) {
-    long itemID = -1;
-    itemID = m_pListCtrlInstruments->GetNextItem(itemID, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+              pConf->Read(wxString::Format("ArrowFirst%d", i + 1), &config,
+                          "DASHN");
+              instp->m_Arrow_First_Colour.Set(config);
 
-    m_pListCtrlInstruments->DeleteItem(itemID);
-    UpdateButtonsState();
-}
+              pConf->Read(wxString::Format("ArrowSecond%d", i + 1), &config,
+                          "BLUE3");
+              instp->m_Arrow_Second_Colour.Set(config);
 
-void DashboardPreferencesDialog::OnInstrumentEdit(wxCommandEvent& event) {
-// TODO: Instument options
-}
-
-void DashboardPreferencesDialog::OnInstrumentUp(wxCommandEvent& event) {
-    long itemID = -1;
-    itemID = m_pListCtrlInstruments->GetNextItem(itemID, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-
-    wxListItem item;
-    item.SetId(itemID);
-    item.SetMask(wxLIST_MASK_TEXT | wxLIST_MASK_IMAGE | wxLIST_MASK_DATA);
-    m_pListCtrlInstruments->GetItem(item);
-    item.SetId(itemID - 1);
-    m_pListCtrlInstruments->DeleteItem(itemID);
-    m_pListCtrlInstruments->InsertItem(item);
-    m_pListCtrlInstruments->SetItemState(itemID - 1, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
-    UpdateButtonsState();
-}
-
-void DashboardPreferencesDialog::OnInstrumentDown(wxCommandEvent& event) {
-    long itemID = -1;
-    itemID = m_pListCtrlInstruments->GetNextItem(itemID, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-
-    wxListItem item;
-    item.SetId(itemID);
-    item.SetMask(wxLIST_MASK_TEXT | wxLIST_MASK_IMAGE | wxLIST_MASK_DATA);
-    m_pListCtrlInstruments->GetItem(item);
-    item.SetId(itemID + 1);
-    m_pListCtrlInstruments->DeleteItem(itemID);
-    m_pListCtrlInstruments->InsertItem(item);
-    m_pListCtrlInstruments->SetItemState(itemID + 1, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
-    UpdateButtonsState();
-}
-
-//----------------------------------------------------------------
-//
-//    Add Instrument Dialog Implementation
-//
-//----------------------------------------------------------------
-
-AddInstrumentDlg::AddInstrumentDlg(wxWindow *pparent, wxWindowID id) :
-        wxDialog(pparent, id, _("Add instrument"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE) {
-    wxBoxSizer* itemBoxSizer01 = new wxBoxSizer(wxVERTICAL);
-    SetSizer(itemBoxSizer01);
-    wxStaticText* itemStaticText01 = new wxStaticText(this, wxID_ANY,
-            _("Select instrument to add:"), wxDefaultPosition, wxDefaultSize, 0);
-    itemBoxSizer01->Add(itemStaticText01, 0, wxEXPAND | wxALL, 5);
-
-    wxImageList *imglist = new wxImageList(20, 20, true, 2);
-    imglist->Add(*_img_instrument);
-    imglist->Add(*_img_dial);
-
-    m_pListCtrlInstruments = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(250, 180),
-            wxLC_REPORT | wxLC_NO_HEADER | wxLC_SINGLE_SEL | wxLC_SORT_ASCENDING);
-    itemBoxSizer01->Add(m_pListCtrlInstruments, 0, wxEXPAND | wxALL, 5);
-    m_pListCtrlInstruments->AssignImageList(imglist, wxIMAGE_LIST_SMALL);
-    m_pListCtrlInstruments->InsertColumn(0, _("Instruments"));
-    wxStdDialogButtonSizer* DialogButtonSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL);
-    itemBoxSizer01->Add(DialogButtonSizer, 0, wxALIGN_RIGHT | wxALL, 5);
-
-	// Perhaps there should be a dummy first entry
-	// Final loop, Do not reference an instrument, but the last dummy entry in the list
-    for (unsigned int i = ID_DBP_MAIN_ENGINE_RPM; i < ID_DBP_LAST_ENTRY; i++) { 
-        wxListItem item;
-        GetListItemForInstrument(item,i);
-        item.SetId(i);
-        m_pListCtrlInstruments->InsertItem(item);
-    }
-
-    m_pListCtrlInstruments->SetColumnWidth(0, wxLIST_AUTOSIZE);
-    m_pListCtrlInstruments->SetItemState(0, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
-
-    Fit();
-}
-
-unsigned int AddInstrumentDlg::GetInstrumentAdded() {
-    long itemID = -1;
-    itemID = m_pListCtrlInstruments->GetNextItem(itemID, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    return (int) m_pListCtrlInstruments->GetItemData(itemID);
-}
-
-//----------------------------------------------------------------
-//
-//    Dashboard Window Implementation
-//
-//----------------------------------------------------------------
-
-// wxWS_EX_VALIDATE_RECURSIVELY required to push events to parents
-DashboardWindow::DashboardWindow(wxWindow *pparent, wxWindowID id, wxAuiManager *auimgr,
-        dashboard_pi* plugin, int orient, DashboardWindowContainer* mycont) :
-        wxWindow(pparent, id, wxDefaultPosition, wxDefaultSize, wxBORDER_DEFAULT) {
-    m_pauimgr = auimgr;
-    m_plugin = plugin;
-    m_Container = mycont;
-
-	// wx2.9 itemBoxSizer = new wxWrapSizer(orient);
-    itemBoxSizer = new wxBoxSizer(orient);
-    SetSizer(itemBoxSizer);
-    Connect(wxEVT_SIZE, wxSizeEventHandler(DashboardWindow::OnSize), NULL, this);
-    Connect(wxEVT_CONTEXT_MENU, wxContextMenuEventHandler(DashboardWindow::OnContextMenu), NULL,
-            this);
-    Connect(wxEVT_COMMAND_MENU_SELECTED,
-            wxCommandEventHandler(DashboardWindow::OnContextMenuSelect), NULL, this);
-}
-
-DashboardWindow::~DashboardWindow() {
-    for (size_t i = 0; i < m_ArrayOfInstrument.GetCount(); i++) {
-        DashboardInstrumentContainer *pdic = m_ArrayOfInstrument.Item(i);
-        delete pdic;
-    }
-}
-
-void DashboardWindow::OnSize(wxSizeEvent& event) {
-    event.Skip();
-    for (unsigned int i=0; i<m_ArrayOfInstrument.size(); i++) {
-        DashboardInstrument* inst = m_ArrayOfInstrument.Item(i)->m_pInstrument;
-        inst->SetMinSize(inst->GetSize(itemBoxSizer->GetOrientation(), GetClientSize()));
-    }
-    Layout();
-    Refresh();
-}
-
-void DashboardWindow::OnContextMenu(wxContextMenuEvent& event) {
-    wxMenu* contextMenu = new wxMenu();
-
-    wxAuiPaneInfo &pane = m_pauimgr->GetPane(this);
-    if (pane.IsOk() && pane.IsDocked()) {
-        contextMenu->Append(ID_DASH_UNDOCK, _("Undock"));
-    }
-    wxMenuItem* btnVertical = contextMenu->AppendRadioItem(ID_DASH_VERTICAL, _("Vertical"));
-    btnVertical->Check(itemBoxSizer->GetOrientation() == wxVERTICAL);
-    wxMenuItem* btnHorizontal = contextMenu->AppendRadioItem(ID_DASH_HORIZONTAL, _("Horizontal"));
-    btnHorizontal->Check(itemBoxSizer->GetOrientation() == wxHORIZONTAL);
-    contextMenu->AppendSeparator();
-
-    m_plugin->PopulateContextMenu(contextMenu);
-
-    contextMenu->AppendSeparator();
-    contextMenu->Append(ID_DASH_PREFS, _("Preferences..."));
-    PopupMenu(contextMenu);
-    delete contextMenu;
-}
-
-void DashboardWindow::OnContextMenuSelect(wxCommandEvent& event) {
-    if (event.GetId() < ID_DASH_PREFS) { 
-	// Toggle dashboard visibility
-        m_plugin->ShowDashboard(event.GetId()-1, event.IsChecked());
-        SetToolbarItemState(m_plugin->GetToolbarItemId(), m_plugin->GetDashboardWindowShownCount() != 0);
-    }
-
-    switch(event.GetId()) {
-        case ID_DASH_PREFS: {
-            m_plugin->ShowPreferencesDialog(this);
-            return; // Does it's own save.
+              Property.Add(instp);
+            }
+          }
         }
-        case ID_DASH_VERTICAL: {
-            ChangePaneOrientation(wxVERTICAL, true);
-            m_Container->m_sOrientation = _T("V");
-            break;
-        }
-        case ID_DASH_HORIZONTAL: {
-            ChangePaneOrientation(wxHORIZONTAL, true);
-            m_Container->m_sOrientation = _T("H");
-            break;
-        }
-        case ID_DASH_UNDOCK: {
-            ChangePaneOrientation(GetSizerOrientation(), true);
-            return;     // Nothing changed so nothing need be saved
-        }
+        // TODO: Do not add if GetCount == 0
+
+        DashboardWindowContainer *cont = new DashboardWindowContainer(
+            NULL, name, caption, orient, ar, Property);
+        cont->m_bPersVisible = b_persist;
+        cont->m_conf_best_size = best_size;
+        cont->m_persist_size = persist_size;
+
+        if (b_persist) b_onePersisted = true;
+
+        m_ArrayOfDashboardWindow.Add(cont);
+      }
+
+      // Make sure at least one dashboard is scheduled to be visible
+      if (m_ArrayOfDashboardWindow.Count() && !b_onePersisted) {
+        DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(0);
+        if (cont) cont->m_bPersVisible = true;
+      }
     }
-    
-    m_plugin->SaveConfig();
-}
-
-void DashboardWindow::SetColorScheme(PI_ColorScheme cs) {
-    DimeWindow(this);
-    
-    // Improve appearance, especially in DUSK or NIGHT palette
-    wxColour col;
-   // GetGlobalColor(_T("DASHL"), &col);
-	col = *wxLIGHT_GREY;
-    SetBackgroundColour(col);
-    Refresh(false);
-}
-
-void DashboardWindow::ChangePaneOrientation(int orient, bool updateAUImgr) {
-    m_pauimgr->DetachPane(this);
-    SetSizerOrientation(orient);
-    bool vertical = orient == wxVERTICAL;
-    // wxSize sz = GetSize(orient, wxDefaultSize);
-    wxSize sz = GetMinSize();
-    // We must change Name to reset AUI perpective
-    m_Container->m_sName = MakeName();
-    m_pauimgr->AddPane(this, wxAuiPaneInfo().Name(m_Container->m_sName).Caption(
-        m_Container->m_sCaption).CaptionVisible(true).TopDockable(!vertical).BottomDockable(
-        !vertical).LeftDockable(vertical).RightDockable(vertical).MinSize(sz).BestSize(
-        sz).FloatingSize(sz).FloatingPosition(100, 100).Float().Show(m_Container->m_bIsVisible));
-    if (updateAUImgr) m_pauimgr->Update();
-}
-
-void DashboardWindow::SetSizerOrientation(int orient) {
-    itemBoxSizer->SetOrientation(orient);
-    // We must reset all MinSize to ensure we start with new default
-    wxWindowListNode* node = GetChildren().GetFirst();
-    while(node) {
-        node->GetData()->SetMinSize(wxDefaultSize);
-        node = node->GetNext();
-    }
-    SetMinSize(wxDefaultSize);
-    Fit();
-    SetMinSize(itemBoxSizer->GetMinSize());
-}
-
-int DashboardWindow::GetSizerOrientation() {
-    return itemBoxSizer->GetOrientation();
-}
-
-bool isArrayIntEqual(const wxArrayInt& l1, const wxArrayOfInstrument &l2) {
-    if (l1.GetCount() != l2.GetCount()) return false;
-
-    for (size_t i = 0; i < l1.GetCount(); i++)
-        if (l1.Item(i) != l2.Item(i)->m_ID) return false;
 
     return true;
+  } else
+    return false;
 }
 
-bool DashboardWindow::isInstrumentListEqual(const wxArrayInt& list) {
-    return isArrayIntEqual(list, m_ArrayOfInstrument);
+void Dashboard::LoadFont(wxFont **target, wxString native_info) {
+  if (!native_info.IsEmpty()) {
+#ifdef __OCPN__ANDROID__
+    wxFont *nf = new wxFont(native_info);
+    *target = nf;
+#else
+    (*target)->SetNativeFontInfo(native_info);
+#endif
+  }
 }
 
-// Create and display each instrument in a dashboard container
-void DashboardWindow::SetInstrumentList(wxArrayInt list) {
-    m_ArrayOfInstrument.Clear();
-    itemBoxSizer->Clear(true);
-    for (size_t i = 0; i < list.GetCount(); i++) {
-        int id = list.Item(i);
-        DashboardInstrument *instrument = NULL;
-        switch (id) {
-			case ID_DBP_MAIN_ENGINE_RPM:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_RPM, 0, g_iDashTachometerMax);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(1000, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(200, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_MAIN_ENGINE_HOURS, _T("%.1f"), DIAL_POSITION_INSIDE);
-				((DashboardInstrument_Dial*)instrument)->SetOptionWarningValue(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE);
-				break;
-			case ID_DBP_PORT_ENGINE_RPM:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_RPM, 0, g_iDashTachometerMax);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(1000, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(200, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_PORT_ENGINE_HOURS, _T("%.1f"), DIAL_POSITION_INSIDE);
-				((DashboardInstrument_Dial*)instrument)->SetOptionWarningValue(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE);
-				break;
-			case ID_DBP_STBD_ENGINE_RPM:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_RPM, 0, g_iDashTachometerMax);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(1000, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(200, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_STBD_ENGINE_HOURS, _T("%.1f"), DIAL_POSITION_INSIDE);
-				((DashboardInstrument_Dial*)instrument)->SetOptionWarningValue(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE);
-				break;
-			case ID_DBP_MAIN_ENGINE_OIL:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_OIL, 0, g_iDashPressureUnit == PRESSURE_BAR ? 5 : 80);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashPressureUnit == PRESSURE_BAR ? 1 : 20,	DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashPressureUnit == PRESSURE_BAR ? 0.5 : 10, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_PORT_ENGINE_OIL:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_OIL, 0, g_iDashPressureUnit == PRESSURE_BAR ? 5 : 80);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashPressureUnit == PRESSURE_BAR ? 1 : 20, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashPressureUnit == PRESSURE_BAR ? 0.5 : 10, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_STBD_ENGINE_OIL:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_OIL, 0, g_iDashPressureUnit == PRESSURE_BAR ? 5 : 80);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashPressureUnit == PRESSURE_BAR ? 1 : 20, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashPressureUnit == PRESSURE_BAR ? 0.5 : 10, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_MAIN_ENGINE_WATER:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_WATER, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 60 : 100 , g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 120 : 250);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_PORT_ENGINE_WATER:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_WATER, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 60 : 100, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 120 : 250);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_STBD_ENGINE_WATER:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_WATER, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 60 : 100, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 120 : 250);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_MAIN_ENGINE_EXHAUST:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 190);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_PORT_ENGINE_EXHAUST:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 190);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_STBD_ENGINE_EXHAUST:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_EXHAUST, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 0 : 40, g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 80 : 190);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 10 : 30, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(g_iDashTemperatureUnit == TEMPERATURE_CELSIUS ? 5 : 15, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_MAIN_ENGINE_VOLTS:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_PORT_ENGINE_VOLTS:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2,	DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_STBD_ENGINE_VOLTS:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2,	DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_MAIN_ENGINE_FUEL_RATE:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, 0, g_iDashVolumeUnit == VOLUME_LITRE ? 10 : 4 );
-				((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_PORT_ENGINE_FUEL_RATE:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, 0, g_iDashVolumeUnit == VOLUME_LITRE ? 10 : 4);
-				((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_STBD_ENGINE_FUEL_RATE:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, 0, g_iDashVolumeUnit == VOLUME_LITRE ? 10 : 4);
-				((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
-				((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_FUEL_TANK_01:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_01, 0, 100);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5,	DIAL_MARKER_WARNING_LOW, 1);
-				break;
-			case ID_DBP_WATER_TANK_01:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_01, 0, 100);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5,	DIAL_MARKER_WARNING_LOW, 1);
-				break;
-			case ID_DBP_FUEL_TANK_02:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_02, 0, 100);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_LOW, 1);
-				break;
-			case ID_DBP_WATER_TANK_02:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_02, 0, 100);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_LOW, 1);
-				break;
-			case ID_DBP_WATER_TANK_03:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_03, 0, 100);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_LOW, 1);
-				break;
-			case ID_DBP_OIL_TANK:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_OIL, 0, 100);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_LOW, 1);
-				break;
-			case ID_DBP_LIVEWELL_TANK:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_LIVEWELL, 0, 100);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_LOW, 1);
-				break;
-			case ID_DBP_GREY_TANK:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_GREY, 0, 100);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_HIGH, 1);
-				break;
-			case ID_DBP_BLACK_TANK:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
-					GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_BLACK, 0, 100);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(25, DIAL_LABEL_FRACTIONS);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(12.5, DIAL_MARKER_WARNING_HIGH, 1);
-				break;
-			case ID_DBP_START_BATTERY_VOLTS:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY, GetInstrumentCaption(id), 
-				OCPN_DBP_STC_START_BATTERY_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_GREEN_MID, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_START_BATTERY_AMPS, _T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_HOUSE_BATTERY_VOLTS:
-				instrument = new DashboardInstrument_Speedometer(this, wxID_ANY, GetInstrumentCaption(id), 
-				OCPN_DBP_STC_HOUSE_BATTERY_VOLTS, g_bTwentyFourVolts?18:8, g_bTwentyFourVolts?32:16);
-				((DashboardInstrument_Dial *)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
-				((DashboardInstrument_Dial *)instrument)->SetOptionMarker(1, DIAL_MARKER_GREEN_MID, 1);
-				((DashboardInstrument_Dial *)instrument)->SetOptionExtraValue(OCPN_DBP_STC_HOUSE_BATTERY_AMPS, _T("%.1f"), DIAL_POSITION_INSIDE);
-				break;
-			case ID_DBP_RSA:{
-				instrument = new DashboardInstrument_RudderAngle(this, wxID_ANY, GetInstrumentCaption(id));
-				((DashboardInstrument_RudderAngle *)instrument)->SetOptionMarker(5, DIAL_MARKER_REDGREEN, 2);
-				wxString labels[] = {_T("40"), _T("30"), _T("20"), _T("10"), _T("0"), _T("10"), _T("20"), _T("30"), _T("40")};
-				((DashboardInstrument_RudderAngle *)instrument)->SetOptionLabel(10, DIAL_LABEL_HORIZONTAL, wxArrayString(9,labels));
-				break;
-			}
-			case ID_DBP_FUEL_TANK_GAUGE_01:
-				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, "%s");
-				break;
-			case ID_DBP_FUEL_TANK_GAUGE_02:
-				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_02, "%s");
-				break;
-			case ID_DBP_WATER_TANK_GAUGE_01:
-				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_01, "%s");
-				break;
-			case ID_DBP_WATER_TANK_GAUGE_02:
-				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_02, "%s");
-				break;
-			case ID_DBP_WATER_TANK_GAUGE_03:
-				instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_WATER_GAUGE_03, "%s");
-				break;
-		}
-        if (instrument) {
-            instrument->instrumentTypeId = id;
-            m_ArrayOfInstrument.Add(new DashboardInstrumentContainer(id, instrument,instrument->GetCapacity()));
-            itemBoxSizer->Add(instrument, 0, wxEXPAND, 0);
-            if (itemBoxSizer->GetOrientation() == wxHORIZONTAL) {
-                itemBoxSizer->AddSpacer(5);
-            }
+bool Dashboard::SaveConfig(void) {
+  wxFileConfig *pConf = (wxFileConfig *)m_pconfig;
+
+  if (pConf) {
+    pConf->SetPath("/PlugIns/Engine-Dashboard");
+    pConf->Write("Version", "2");
+    pConf->Write("FontTitle",
+                 g_pUSFontTitle->GetChosenFont().GetNativeFontInfoDesc());
+    pConf->Write("ColorTitle",
+                 g_pUSFontTitle->GetColour().GetAsString(wxC2S_HTML_SYNTAX));
+    pConf->Write("FontData",
+                 g_pUSFontData->GetChosenFont().GetNativeFontInfoDesc());
+    pConf->Write("ColorData",
+                 g_pUSFontData->GetColour().GetAsString(wxC2S_HTML_SYNTAX));
+    pConf->Write("FontLabel",
+                 g_pUSFontLabel->GetChosenFont().GetNativeFontInfoDesc());
+    pConf->Write("ColorLabel",
+                 g_pUSFontLabel->GetColour().GetAsString(wxC2S_HTML_SYNTAX));
+    pConf->Write("FontSmall",
+                 g_pUSFontSmall->GetChosenFont().GetNativeFontInfoDesc());
+    pConf->Write("ColorSmall",
+                 g_pUSFontSmall->GetColour().GetAsString(wxC2S_HTML_SYNTAX));
+    
+	pConf->Write("PrefWidth", g_dashPrefWidth);
+	pConf->Write("PrefHeight", g_dashPrefHeight);
+
+	pConf->Write(_T("TachometerMax"), g_tachometerMax);
+	pConf->Write(_T("TemperatureUnit"), g_temperatureUnit);
+	pConf->Write(_T("PressureUnit"), g_pressureUnit);
+	pConf->Write(_T("DualEngine"), g_dualEngine);
+	pConf->Write(_T("TwentyFourVolt"), g_twentyFourVolts);
+	pConf->Write(_T("HighContrast"), g_highContrast);
+
+    pConf->Write("DashboardCount", (int)m_ArrayOfDashboardWindow.GetCount());
+    // Delete old Dashborads
+    for (size_t i = m_ArrayOfDashboardWindow.GetCount(); i < 20; i++) {
+      if (pConf->Exists(
+              wxString::Format("/PlugIns/Engine-Dashboard/Dashboard%zu", i + 1))) {
+        pConf->DeleteGroup(
+            wxString::Format("/PlugIns/Engine-Dashboard/Dashboard%zu", i + 1));
+      }
+    }
+    for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+      DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
+      pConf->SetPath(
+          wxString::Format("/PlugIns/Engine-Dashboard/Dashboard%zu", i + 1));
+      pConf->Write("Name", cont->m_sName);
+      pConf->Write("Caption", cont->m_sCaption);
+      pConf->Write("Orientation", cont->m_sOrientation);
+      pConf->Write("Persistence", cont->m_bPersVisible);
+      pConf->Write("InstrumentCount", (int)cont->m_aInstrumentList.GetCount());
+      pConf->Write("BestSizeX", cont->m_best_size.x);
+      pConf->Write("BestSizeY", cont->m_best_size.y);
+      pConf->Write("PersistSizeX", cont->m_pDashboardWindow->GetSize().x);
+      pConf->Write("PersistSizeY", cont->m_pDashboardWindow->GetSize().y);
+
+      // Delete old Instruments
+      for (size_t i = cont->m_aInstrumentList.GetCount(); i < 40; i++) {
+        if (pConf->Exists(wxString::Format("Instrument%zu", i + 1))) {
+          pConf->DeleteEntry(wxString::Format("Instrument%zu", i + 1));
+          if (pConf->Exists(wxString::Format("InstTitleFont%zu", i + 1))) {
+            pConf->DeleteEntry(wxString::Format("InstTitleFont%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstTitleColor%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstTitle%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataShowUnit%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataMargin%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataAlignment%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataFormat%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataFont%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataColor%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstLabelFont%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstLabelColor%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstSmallFont%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstSmallColor%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("TitleBackColor%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("DataBackColor%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("ArrowFirst%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("ArrowSecond%zu", i + 1));
+          }
         }
+      }
+      for (size_t j = 0; j < cont->m_aInstrumentList.GetCount(); j++) {
+        pConf->Write(wxString::Format("Instrument%zu", j + 1),
+                     cont->m_aInstrumentList.Item(j));
+        InstrumentProperties *Inst = NULL;
+        // First delete
+        if (pConf->Exists(wxString::Format("InstTitleFont%zu", j + 1))) {
+          bool Delete = true;
+          for (size_t i = 0; i < cont->m_aInstrumentPropertyList.GetCount();
+               i++) {
+            Inst = cont->m_aInstrumentPropertyList.Item(i);
+            if (Inst->m_Listplace == (int)j) {
+              Delete = false;
+              break;
+            }
+          }
+          if (Delete) {
+            pConf->DeleteEntry(wxString::Format("InstTitleFont%zu", j + 1));
+            pConf->DeleteEntry(wxString::Format("InstTitleColor%zu", j + 1));
+            pConf->DeleteEntry(wxString::Format("InstTitle%zu", j + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataShowUnit%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataMargin%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataAlignment%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataFormat%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataFont%zu", j + 1));
+            pConf->DeleteEntry(wxString::Format("InstDataColor%zu", j + 1));
+            pConf->DeleteEntry(wxString::Format("InstLabelFont%zu", j + 1));
+            pConf->DeleteEntry(wxString::Format("InstLabelColor%zu", j + 1));
+            pConf->DeleteEntry(wxString::Format("InstSmallFont%zu", j + 1));
+            pConf->DeleteEntry(wxString::Format("InstSmallColor%zu", j + 1));
+            pConf->DeleteEntry(wxString::Format("TitleBackColor%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("DataBackColor%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("ArrowFirst%zu", i + 1));
+            pConf->DeleteEntry(wxString::Format("ArrowSecond%zu", i + 1));
+          }
+        }
+        Inst = NULL;
+        for (size_t i = 0; i < (cont->m_aInstrumentPropertyList.GetCount());
+             i++) {
+          Inst = cont->m_aInstrumentPropertyList.Item(i);
+          if (Inst->m_Listplace == (int)j) {
+            pConf->Write(
+                wxString::Format("InstTitleFont%zu", j + 1),
+                Inst->m_USTitleFont.GetChosenFont().GetNativeFontInfoDesc());
+            pConf->Write(
+                wxString::Format("InstTitleColor%zu", j + 1),
+                Inst->m_USTitleFont.GetColour().GetAsString(wxC2S_HTML_SYNTAX));
+            pConf->Write(
+                wxString::Format("InstDataFont%zu", j + 1),
+                Inst->m_USDataFont.GetChosenFont().GetNativeFontInfoDesc());
+            pConf->Write(
+                wxString::Format("InstDataColor%zu", j + 1),
+                Inst->m_USDataFont.GetColour().GetAsString(wxC2S_HTML_SYNTAX));
+            pConf->Write(
+                wxString::Format("InstLabelFont%zu", j + 1),
+                Inst->m_USLabelFont.GetChosenFont().GetNativeFontInfoDesc());
+            pConf->Write(
+                wxString::Format("InstLabelColor%zu", j + 1),
+                Inst->m_USLabelFont.GetColour().GetAsString(wxC2S_HTML_SYNTAX));
+            pConf->Write(
+                wxString::Format("InstSmallFont%zu", j + 1),
+                Inst->m_USSmallFont.GetChosenFont().GetNativeFontInfoDesc());
+            pConf->Write(
+                wxString::Format("InstSmallColor%zu", j + 1),
+                Inst->m_USSmallFont.GetColour().GetAsString(wxC2S_HTML_SYNTAX));
+            pConf->Write(
+                wxString::Format("TitleBackColor%zu", j + 1),
+                Inst->m_TitleBackgroundColour.GetAsString(wxC2S_HTML_SYNTAX));
+            pConf->Write(
+                wxString::Format("DataBackColor%zu", j + 1),
+                Inst->m_DataBackgroundColour.GetAsString(wxC2S_HTML_SYNTAX));
+            pConf->Write(
+                wxString::Format("ArrowFirst%zu", j + 1),
+                Inst->m_Arrow_First_Colour.GetAsString(wxC2S_HTML_SYNTAX));
+            pConf->Write(
+                wxString::Format("ArrowSecond%zu", j + 1),
+                Inst->m_Arrow_Second_Colour.GetAsString(wxC2S_HTML_SYNTAX));
+            break;
+          }
+        }
+      }
     }
-    Fit();
-    Layout();
-    SetMinSize(itemBoxSizer->GetMinSize());
+    pConf->Flush();
+    return true;
+  } else
+    return false;
 }
 
-void DashboardWindow::SendSentenceToAllInstruments(DASH_CAP st, double value, wxString unit) {
-    for (size_t i = 0; i < m_ArrayOfInstrument.GetCount(); i++) {
-		if (m_ArrayOfInstrument.Item(i)->m_cap_flag.test(st)) {
-			m_ArrayOfInstrument.Item(i)->m_pInstrument->SetData(st, value, unit);
-		}
+void Dashboard::ApplyConfig(void) {
+  // Reverse order to handle deletes
+  for (size_t i = m_ArrayOfDashboardWindow.GetCount(); i > 0; i--) {
+    DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i - 1);
+    int orient = (cont->m_sOrientation == "V" ? wxVERTICAL : wxHORIZONTAL);
+    if (cont->m_bIsDeleted) {
+      if (cont->m_pDashboardWindow) {
+        m_pauimgr->DetachPane(cont->m_pDashboardWindow);
+        cont->m_pDashboardWindow->Close();
+        cont->m_pDashboardWindow->Destroy();
+        cont->m_pDashboardWindow = NULL;
+      }
+      m_ArrayOfDashboardWindow.Remove(cont);
+      delete cont;
+
+    } else if (!cont->m_pDashboardWindow) {
+      // A new dashboard is created
+      cont->m_pDashboardWindow = new DashboardWindow(
+          GetOCPNCanvasWindow(), wxID_ANY, m_pauimgr, this, orient, cont);
+      cont->m_pDashboardWindow->SetInstrumentList(
+          cont->m_aInstrumentList, &(cont->m_aInstrumentPropertyList));
+      bool vertical = orient == wxVERTICAL;
+      wxSize sz = cont->m_pDashboardWindow->GetMinSize();
+      wxSize best = cont->m_conf_best_size;
+      if (best.x < 100) best = sz;
+
+// Mac has a little trouble with initial Layout() sizing...
+#ifdef __WXOSX__
+      if (sz.x == 0) sz.IncTo(wxSize(160, 388));
+#endif
+      wxAuiPaneInfo p = wxAuiPaneInfo()
+                            .Name(cont->m_sName)
+                            .Caption(cont->m_sCaption)
+                            .CaptionVisible(false)
+                            .TopDockable(!vertical)
+                            .BottomDockable(!vertical)
+                            .LeftDockable(vertical)
+                            .RightDockable(vertical)
+                            .MinSize(sz)
+                            .BestSize(best)
+                            .FloatingSize(sz)
+                            .FloatingPosition(100, 100)
+                            .Float()
+                            .Show(cont->m_bIsVisible)
+                            .Gripper(false);
+
+      m_pauimgr->AddPane(cont->m_pDashboardWindow, p);
+      // wxAuiPaneInfo().Name( cont->m_sName ).Caption( cont->m_sCaption
+      // ).CaptionVisible( false ).TopDockable(
+      // !vertical ).BottomDockable( !vertical ).LeftDockable( vertical
+      // ).RightDockable( vertical ).MinSize( sz ).BestSize( sz ).FloatingSize(
+      // sz ).FloatingPosition( 100, 100 ).Float().Show( cont->m_bIsVisible ) );
+
+#ifdef __OCPN__ANDROID__
+      wxAuiPaneInfo &pane = m_pauimgr->GetPane(cont->m_pDashboardWindow);
+      pane.Dockable(false);
+
+#endif
+
+    } else {
+      wxAuiPaneInfo &pane = m_pauimgr->GetPane(cont->m_pDashboardWindow);
+      pane.Caption(cont->m_sCaption).Show(cont->m_bIsVisible);
+      if (!cont->m_pDashboardWindow->IsInstrumentListEqual(
+              cont->m_aInstrumentList)) {
+        cont->m_pDashboardWindow->SetInstrumentList(
+            cont->m_aInstrumentList, &(cont->m_aInstrumentPropertyList));
+        wxSize sz = cont->m_pDashboardWindow->GetMinSize();
+        pane.MinSize(sz).BestSize(sz).FloatingSize(sz);
+      }
+      if (cont->m_pDashboardWindow->GetSizerOrientation() != orient) {
+        cont->m_pDashboardWindow->ChangePaneOrientation(orient, false);
+      }
     }
+  }
+  m_pauimgr->Update();
+
+  
 }
+
+void Dashboard::PopulateContextMenu(wxMenu *menu) {
+  int nvis = 0;
+  wxMenuItem *visItem = 0;
+  for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
+    DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(i);
+    wxMenuItem *item = menu->AppendCheckItem(i + 1, cont->m_sCaption);
+    item->Check(cont->m_bIsVisible);
+    if (cont->m_bIsVisible) {
+      nvis++;
+      visItem = item;
+    }
+  }
+  if (nvis == 1 && visItem) visItem->Enable(false);
+}
+
+void Dashboard::ShowDashboard(size_t id, bool visible) {
+  if (id < m_ArrayOfDashboardWindow.GetCount()) {
+    DashboardWindowContainer *cont = m_ArrayOfDashboardWindow.Item(id);
+    m_pauimgr->GetPane(cont->m_pDashboardWindow).Show(visible);
+    cont->m_bIsVisible = visible;
+    cont->m_bPersVisible = visible;
+    m_pauimgr->Update();
+  }
+}
+

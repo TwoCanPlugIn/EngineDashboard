@@ -1,8 +1,3 @@
-//
-// This file is part of Engine Dashboard, a plugin for OpenCPN.
-// based on the original version of the dashboard.
-// Author: Steven Adler
-//
 /******************************************************************************
  * $Id: rudder_angle.h, v1.0 2010/08/26 SethDart Exp $
  *
@@ -30,39 +25,38 @@
  ***************************************************************************
  */
 
-#ifndef _RUDDERANGLE_H_
-#define _RUDDERANGLE_H_
+#ifndef __RudderAngle_H__
+#define __RudderAngle_H__
 
 // For compilers that support precompilation, includes "wx/wx.h".
 #include <wx/wxprec.h>
 
 #ifdef __BORLANDC__
-    #pragma hdrstop
+#pragma hdrstop
 #endif
 
 // for all others, include the necessary headers (this file is usually all you
 // need because it includes almost all "standard" wxWidgets headers)
 #ifndef WX_PRECOMP
-    #include <wx/wx.h>
+#include <wx/wx.h>
 #endif
 
 #include "dial.h"
 
-class DashboardInstrument_RudderAngle: public DashboardInstrument_Dial {
-
+class DashboardInstrument_RudderAngle : public DashboardInstrument_Dial {
 public:
-	DashboardInstrument_RudderAngle(wxWindow *parent, wxWindowID id, wxString title);
-	~DashboardInstrument_RudderAngle(void);
-	
-	wxSize GetSize( int orient, wxSize hint );
-	void SetData(DASH_CAP, double, wxString);
+  DashboardInstrument_RudderAngle(wxWindow* parent, wxWindowID id,
+                                  wxString title,
+                                  InstrumentProperties* Properties);
+  ~DashboardInstrument_RudderAngle(void) {}
+
+  wxSize GetSize(int orient, wxSize hint);
+  void SetData(DASH_CAP, double, wxString);
 
 private:
-
 protected:
-	void DrawFrame(wxGCDC *dc);
-	void DrawBackground(wxGCDC *dc);
+  void DrawFrame(wxGCDC* dc);
+  void DrawBackground(wxGCDC* dc);
 };
 
-#endif // _RUDDERANGLE_H_
-
+#endif  // __RudderAngle_H__

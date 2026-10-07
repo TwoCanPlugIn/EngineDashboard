@@ -1,15 +1,3 @@
-//
-// Author: Steven Adler
-// 
-// Modified the existing dashboard plugin to create an "Engine Dashboard"
-// Parses NMEA 0183 RSA, RPM & XDR sentences and displays Engine RPM, Oil Pressure, Water Temperature, 
-// Alternator Voltage, Engine Hours andFluid Levels in a dashboard
-//
-// Version 1.0
-// 10-10-2019
-// 
-// Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
-//
 /******************************************************************************
  * $Id: speedometer.cpp, v1.0 2010/08/05 SethDart Exp $
  *
@@ -43,23 +31,24 @@
 #include <wx/wxprec.h>
 
 #ifdef __BORLANDC__
-    #pragma hdrstop
+#pragma hdrstop
 #endif
 
 // for all others, include the necessary headers (this file is usually all you
 // need because it includes almost all "standard" wxWidgets headers)
 #ifndef WX_PRECOMP
-    #include <wx/wx.h>
+#include <wx/wx.h>
 #endif
 
 // Not much to do here most of the default dial values are fine.
 // Note the default AngleStart = 225 and AngleRange = 270 set here.
 
-DashboardInstrument_Speedometer::DashboardInstrument_Speedometer( wxWindow *parent, wxWindowID id, wxString title, DASH_CAP cap_flag,
-                        int s_value, int e_value) : DashboardInstrument_Dial( parent, id, title, cap_flag, 225, 270, s_value, e_value) {
-    // For the tachometer, we display engine hours instead of rpm inside the dial, whereas other dials (eg. oil) display the actual value 
-	// inside the dial so leave it to the dashboard to set the appropriate text value option for inside the dial
-}
-
-DashboardInstrument_Speedometer::~DashboardInstrument_Speedometer(void) {
+DashboardInstrument_Speedometer::DashboardInstrument_Speedometer(
+    wxWindow* parent, wxWindowID id, wxString title,
+    InstrumentProperties* Properties, DASH_CAP cap_flag, int s_value,
+    int e_value)
+    : DashboardInstrument_Dial(parent, id, title, Properties, cap_flag, 225,
+                               270, s_value, e_value) {
+	// For the tachometer, we display engine hours instead of rpm inside the dial, whereas other dials (eg. oil) display the actual value 
+	// inside the dial so leave it to the dashboard to set the appropriate text value
 }

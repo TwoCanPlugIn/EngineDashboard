@@ -1,89 +1,70 @@
-//
-// Author: Steven Adler
-// 
-// Modified the existing dashboard plugin to create an "Engine Dashboard"
-// Parses NMEA 0183 RSA, RPM & XDR sentences and displays Engine RPM, Oil Pressure, Water Temperature, 
-// Alternator Voltage, Engine Hours andFluid Levels in a dashboard
-//
-// Version 1.0
-// 10-10-2019
-// 
-// Please send bug reports to twocanplugin@hotmail.com or to the opencpn forum
-//
-// BUG BUG Refactor to separate each class into it's own source files
-// BUG BUG Consistent style to separate class declaration in header files and class implementation in source files
-/******************************************************************************
- * $Id: dashboard_pi.h, v1.0 2010/08/05 SethDart Exp $
- *
+/***************************************************************************
  * Project:  OpenCPN
- * Purpose:  Dashboard Plugin
+ * Purpose:  Dashboard Plugin - plugin class declaration
  * Author:   Jean-Eudes Onfray
+ * expanded: Bernd Cirotzki 2023 (special colour design)
  *
- ***************************************************************************
- *   Copyright (C) 2010 by David S. Register                               *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
- ***************************************************************************
- */
+ *   Copyright (C) 2010 by David S. Register
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ ***************************************************************************/
 
-#ifndef _DASHBOARDPI_H_
-#define _DASHBOARDPI_H_
+#ifndef _DASHBOARD_PI_H_
+#define _DASHBOARD_PI_H_
 
 #include "wx/wxprec.h"
+#ifndef WX_PRECOMP
+#include "wx/wx.h"
+#endif
 
-#ifndef  WX_PRECOMP
-  #include "wx/wx.h"
-#endif //precompiled headers
+// Automagically generated via config.h.in
+// API and Plugin version numbers
+#include "config.h"
 
-#include <wx/notebook.h>
+#include <ocpn_plugin.h>
+
+#ifdef __OCPN__ANDROID__
+#include <wx/qt/private/wxQtGesture.h>
+#endif
+
+// STL
+#include <assert.h>
+#include <cmath>
+#include <typeinfo>
+
+// wxWidgets
 #include <wx/fileconf.h>
-#include <wx/listctrl.h>
-#include <wx/imaglist.h>
-#include <wx/spinctrl.h>
 #include <wx/aui/aui.h>
-#include <wx/event.h>
-#include <wx/fontpicker.h>
-#include "wx/json_defs.h"
-#include "wx/jsonreader.h"
-#include "wx/jsonval.h"
-#include "wx/jsonwriter.h"
+#include <wx/filename.h>
+#include <wx/fontdlg.h>
 
-// Defines version numbers, names etc. for this plugin
-// This is automagically constructed via version.h.in from CMakeLists.txt, personally I think this is convoluted
-#include "version.h"
+// Required libraries
+#include <nmea0183.h>
+#include <wx/jsonval.h>
+#include <wx/jsonreader.h>
+#include <wx/jsonwriter.h>
+#include <N2KParser.h>
 
-// Differs from the built-in plugins, so that we can build outside of OpenCPN source tree
-#include "ocpn_plugin.h"
-
-// NMEA0183 Sentence parsing functions
-#include "nmea0183.h"
-
-// Dashboard instruments/dials/gauges
+// Refactored headers
+#include "dashboard_globals.h"
+#include "dashboard_window_container.h"
+#include "dashboard_window.h"
+#include "dashboard_preferences_dialog.h"
+#include "ocpn_font_button.h"
+#include "edit_dialog.h"
+#include "add_instrument_dlg.h"
 #include "instrument.h"
 #include "speedometer.h"
 #include "rudder_angle.h"
 
-typedef unsigned char byte;
-
-class DashboardWindow;
-class DashboardWindowContainer;
-class DashboardInstrumentContainer;
+#ifndef PI
+#define PI 3.1415926535897931160E0
+#endif
 
 // Request default positioning of toolbar tool
-#define DASHBOARD_TOOL_POSITION -1          
+#define DASHBOARD_TOOL_POSITION -1 
 
 // If no data received in 5 seconds, zero the instrument displays
 #define WATCHDOG_TIMEOUT_COUNT  5
@@ -95,119 +76,53 @@ class DashboardInstrumentContainer;
 // RADIANS/DEGREES
 #define RADIANS_TO_DEGREES(x) ((x) * 180 / M_PI)
 
-// LITRE to GALLON
-#define LITRES_GALLONS(x) (x / 3.7)
 
-wxString iconFolder;
-
-class DashboardWindowContainer {
+//  instrument_pi  — the plugin entry point
+class Dashboard : public wxTimer, public opencpn_plugin_120 {
 public:
-	DashboardWindowContainer(DashboardWindow *dashboard_window, wxString name, wxString caption, wxString orientation, wxArrayInt inst) {
-       m_pDashboardWindow = dashboard_window; m_sName = name; m_sCaption = caption; m_sOrientation = orientation; m_aInstrumentList = inst; m_bIsVisible = false; m_bIsDeleted = false; }
+    Dashboard(void *ppimgr);
+    ~Dashboard(void);
 
-	~DashboardWindowContainer(){}
+    // Mandatory OpenCPN Plugin API's
+    int  Init(void) override;
+    bool DeInit(void) override;
+    void Notify() override;
+    int GetAPIVersionMajor() override;
+    int GetAPIVersionMinor() override;
+    int GetPlugInVersionMajor() override;
+    int GetPlugInVersionMinor() override;
+    wxBitmap *GetPlugInBitmap() override;
+    wxString GetCommonName() override;
+    wxString GetShortDescription() override;
+    wxString GetLongDescription() override;
 
-	DashboardWindow *m_pDashboardWindow;
-	bool m_bIsVisible;
-	bool m_bIsDeleted;
-	// Persists visibility, even when Dashboard tool is toggled off.
-	bool m_bPersVisible;  
-	wxString m_sName;
-	wxString m_sCaption;
-	wxString m_sOrientation;
-	wxArrayInt m_aInstrumentList;
-};
-
-class DashboardInstrumentContainer {
-public:
-	DashboardInstrumentContainer(int id, DashboardInstrument *instrument, CapType capa) {
-		m_ID = id; m_pInstrument = instrument; m_cap_flag = capa; }
-
-	~DashboardInstrumentContainer(){ delete m_pInstrument; }
-
-	DashboardInstrument *m_pInstrument;
-	int m_ID;
-	CapType m_cap_flag;
-};
-
-// Dynamic arrays of pointers need explicit macros in wx261
-#ifdef __WX261
-WX_DEFINE_ARRAY_PTR(DashboardWindowContainer *, wxArrayOfDashboard);
-WX_DEFINE_ARRAY_PTR(DashboardInstrumentContainer *, wxArrayOfInstrument);
-#else
-WX_DEFINE_ARRAY(DashboardWindowContainer *, wxArrayOfDashboard);
-WX_DEFINE_ARRAY(DashboardInstrumentContainer *, wxArrayOfInstrument);
-#endif
-
-
-//
-// Engine Dashboard PlugIn Class Definition
-//
-
-class dashboard_pi : public opencpn_plugin_118, wxTimer {
-public:
-	dashboard_pi(void *ppimgr);
-	~dashboard_pi(void);
-
-	// The required OpenCPN PlugIn methods
-	int Init(void);
-	bool DeInit(void);
-	int GetAPIVersionMajor();
-	int GetAPIVersionMinor();
-	int GetPlugInVersionMajor();
-	int GetPlugInVersionMinor();
-    wxBitmap *GetPlugInBitmap();
-	wxString GetCommonName();
-	wxString GetShortDescription();
-	wxString GetLongDescription();
+    // Optional OpenCPN Plugin API's
+    int  GetToolbarToolCount(void) override;
+    void OnToolbarToolCallback(int id) override;
+    void ShowPreferencesDialog(wxWindow *parent) override;
+    void SetColorScheme(PI_ColorScheme cs) override;
+    void UpdateAuiStatus(void) override;
 	
-	// As we inherit from wxTimer, the method invoked each timer interval
-	// Used by the plugin to refresh the instruments and to detect stale data 
-	void Notify();
+    // Plugin functions
+    void OnPaneClose(wxAuiManagerEvent& event);
+    bool SaveConfig(void);
+    void PopulateContextMenu(wxMenu *menu);
+    void ShowDashboard(size_t id, bool visible);
+    int GetDashboardWindowShownCount();
+	int GetToolbarItemId(void);
 
-	// The optional OpenCPN plugin methods
-	int GetToolbarToolCount(void);
-	void OnToolbarToolCallback(int id);
-	void ShowPreferencesDialog(wxWindow *parent);
-	void SetColorScheme(PI_ColorScheme cs);
-	void OnPaneClose(wxAuiManagerEvent& event);
-	void UpdateAuiStatus(void);
-	bool SaveConfig(void);
-	void PopulateContextMenu(wxMenu *menu);
-	void ShowDashboard(size_t id, bool visible);
-	int GetToolbarItemId();
-	int GetDashboardWindowShownCount();
-	void SetPluginMessage(wxString& message_id, wxString& message_body);
-	  
 private:
-	// Load plugin configuraton
-	bool LoadConfig(void);
-	void ApplyConfig(void);
-	// Send deconstructed NMEA 1083 sentence values to each display
-	void SendSentenceToAllInstruments(DASH_CAP st, double value, wxString unit);
-	// Conversion utilities
-	double Celsius2Fahrenheit(double temperature);
-	double Fahrenheit2Celsius(double temperature);
-	double Pascal2Psi(double pressure);
-	double Psi2Pascal(double pressure);
-
-	// OpenCPN goodness, pointers to Configuration, AUI Manager and Toolbar
-	wxFileConfig *m_pconfig;
-	wxAuiManager *m_pauimgr;
-	int m_toolbar_item_id;
-
-	// Hide/Show Dashboard Windows
-	wxArrayOfDashboard m_ArrayOfDashboardWindow;
-	int m_show_id;
-	int m_hide_id;
-
+    bool LoadConfig(void);
+    void LoadFont(wxFont **target, wxString native_info);
+    void ApplyConfig(void);
+    void SendSentenceToAllInstruments(DASH_CAP cap_flag, double value, wxString unit);
+    
 	// Used to parse JSON values from SignalK
+	// BUG BUG Should update to Lohmann library
 	wxJSONValue root;
 	wxJSONReader jsonReader;
 	wxString self;
-	void HandleSKUpdate(wxJSONValue &update);
-	void UpdateSKItem(wxJSONValue &item);
-	double GetJsonDouble(wxJSONValue &value); // FFS
+	void ParseSignalK(wxJSONValue& update);
 	bool CheckAlarmState(wxJSONValue& value);
 
 	// Used to parse NMEA Sentences
@@ -227,36 +142,61 @@ private:
 	void HandleSignalK(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_signalk;
 
-
 	// NMEA 2000
 	// index into the payload.
 	// The payload is in Actisense format, so as I've just pasted code from twocan, this simplifies 
 	// accessing the data
 	const int index = 13;
+
 	// Engine Parameters - Rapid Update
 	void HandleN2K_127488(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127488;
+
 	// Engine Parameters - Dynamic
 	void HandleN2K_127489(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127489;
+
 	// Fluid Levels
 	void HandleN2K_127505(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127505;
+
+	// DC Detailed Status
+	void HandleN2K_127506(ObservedEvt ev);
+	std::shared_ptr<ObservableListener> listener_127506;
+
 	// Battery Status
 	void HandleN2K_127508(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127508;
+
 	// Temperature
 	void HandleN2K_130312(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_130312;
+
 	// Rudder Angle
 	void HandleN2K_127245(ObservedEvt ev);
 	std::shared_ptr<ObservableListener> listener_127245;
+
+	// Watchdog timer, performs two functions, firstly refresh the dashboard every second,  
+	// and secondly, if no data is received, set instruments to zero (eg. Engine switched off)
+	wxDateTime m_engineWatchDog;
+	wxDateTime m_tankLevelWatchDog;
+
+	// Store the current engine hours for displaying in the Tachometer Dial
+	double m_mainEngineHours;
+	double m_portEngineHours;
+	double m_stbdEngineHours;
+
+	// Conversion Utilities
+	double Celsius2Fahrenheit(double temperature);
+	double Fahrenheit2Celsius(double temperature);
+	double Pascal2Psi(double pressure);
+	double Psi2Pascal(double pressure);
 
 	// NMEA 2000 Data Validation
 	template<typename T>
 	static bool IsDataValid(T value);
 
-	static bool IsDataValid(byte value) {
+	static bool IsDataValid(uint8_t value) {
 		if ((value == UCHAR_MAX) || (value == UCHAR_MAX - 1) || (value == UCHAR_MAX - 2)) {
 			return FALSE;
 		}
@@ -346,143 +286,18 @@ private:
 		}
 	}
 
+    wxString m_self;
+    wxFileConfig *m_pconfig;
+    wxAuiManager *m_pauimgr;
+    int m_toolbar_item_id;
 
+    wxArrayOfDashboard m_ArrayOfDashboardWindow;
+    int m_show_id;
+    int m_hide_id;
+	
+    int m_config_version;
 
-
-	// For some reason in older dashboard implementations used this variable was used to differentiate config file versions
-	// Engine Dashboard uses version 2 configuration settings
-	int m_config_version;
-
-	// Watchdog timer, performs two functions, firstly refresh the dashboard every second,  
-	// and secondly, if no data is received, set instruments to zero (eg. Engine switched off)
-	wxDateTime engineWatchDog;
-	wxDateTime tankLevelWatchDog;
-
-	// Store the current engine hours for displaying in the Tachometer Dial
-	double mainEngineHours;
-	double portEngineHours;
-	double stbdEngineHours;
-
+    
 };
 
-class DashboardPreferencesDialog : public wxDialog {
-public:
-	DashboardPreferencesDialog(wxWindow *pparent, wxWindowID id, wxArrayOfDashboard config);
-	~DashboardPreferencesDialog() {}
-
-	void OnCloseDialog(wxCloseEvent& event);
-	void OnDashboardSelected(wxListEvent& event);
-	void OnDashboardAdd(wxCommandEvent& event);
-	void OnDashboardDelete(wxCommandEvent& event);
-	void OnInstrumentSelected(wxListEvent& event);
-	void OnInstrumentAdd(wxCommandEvent& event);
-	void OnInstrumentEdit(wxCommandEvent& event);
-	void OnInstrumentDelete(wxCommandEvent& event);
-	void OnInstrumentUp(wxCommandEvent& event);
-	void OnInstrumentDown(wxCommandEvent& event);
-	void SaveDashboardConfig(void);
-
-	wxArrayOfDashboard m_Config;
-	wxFontPickerCtrl *m_pFontPickerTitle;
-	wxFontPickerCtrl *m_pFontPickerData;
-	wxFontPickerCtrl *m_pFontPickerLabel;
-	wxFontPickerCtrl *m_pFontPickerSmall;
-	wxSpinCtrl *m_pSpinSpeedMax;
-    wxSpinCtrl *m_pSpinCOGDamp;
-    wxSpinCtrl *m_pSpinSOGDamp;
-    wxChoice *m_pChoiceUTCOffset;
-    wxChoice *m_pChoiceTemperatureUnit;
-    wxChoice *m_pChoicePressureUnit;
-	wxChoice* m_pChoiceVolumeUnit;
-    wxSpinCtrlDouble *m_pSpinDBTOffset;
-    wxChoice *m_pChoiceDistanceUnit;
-    wxChoice *m_pChoiceWindSpeedUnit;
-	wxCheckBox *m_pCheckBoxDualengine;
-	wxCheckBox *m_pCheckBoxTwentyFourVolts;
-
-private:
-	void UpdateDashboardButtonsState(void);
-	void UpdateButtonsState(void);
-	int curSel;
-	wxListCtrl *m_pListCtrlDashboards;
-	wxBitmapButton *m_pButtonAddDashboard;
-	wxBitmapButton *m_pButtonDeleteDashboard;
-	wxPanel *m_pPanelDashboard;
-	wxTextCtrl *m_pTextCtrlCaption;
-	wxCheckBox *m_pCheckBoxIsVisible;
-	wxChoice *m_pChoiceOrientation;
-	wxListCtrl *m_pListCtrlInstruments;
-	wxButton *m_pButtonAdd;
-	wxButton *m_pButtonEdit;
-	wxButton *m_pButtonDelete;
-	wxButton *m_pButtonUp;
-	wxButton *m_pButtonDown;
-};
-
-class AddInstrumentDlg : public wxDialog {
-public:
-	AddInstrumentDlg(wxWindow *pparent, wxWindowID id);
-	~AddInstrumentDlg() {}
-
-	unsigned int GetInstrumentAdded();
-
-private:
-	wxListCtrl *m_pListCtrlInstruments;
-};
-
-enum {
-	ID_DASHBOARD_WINDOW
-};
-
-enum {
-	ID_DASH_PREFS = 999,
-	ID_DASH_VERTICAL,
-	ID_DASH_HORIZONTAL,
-	ID_DASH_UNDOCK
-};
-
-enum {
-	PRESSURE_BAR,
-	PRESSURE_PSI
-};
-
-enum {
-	TEMPERATURE_CELSIUS,
-	TEMPERATURE_FAHRENHEIT
-};
-
-enum {
-	VOLUME_LITRE,
-	VOLUME_GALLON
-};
-
-class DashboardWindow : public wxWindow {
-public:
-	DashboardWindow(wxWindow *pparent, wxWindowID id, wxAuiManager *auimgr, dashboard_pi* plugin,
-             int orient, DashboardWindowContainer* mycont);
-    ~DashboardWindow();
-
-    void SetColorScheme(PI_ColorScheme cs);
-    void SetSizerOrientation(int orient);
-    int GetSizerOrientation();
-    void OnSize(wxSizeEvent& evt);
-    void OnContextMenu(wxContextMenuEvent& evt);
-    void OnContextMenuSelect(wxCommandEvent& evt);
-    bool isInstrumentListEqual(const wxArrayInt& list);
-    void SetInstrumentList(wxArrayInt list);
-    void SendSentenceToAllInstruments(DASH_CAP st, double value, wxString unit);
-    void ChangePaneOrientation(int orient, bool updateAUImgr);
-
-	// TODO: OnKeyPress pass event to main window or disable focus
-
-    DashboardWindowContainer *m_Container;
-
-private:
-	wxAuiManager *m_pauimgr;
-	dashboard_pi *m_plugin;
-	wxBoxSizer *itemBoxSizer;
-	wxArrayOfInstrument m_ArrayOfInstrument;
-};
-
-#endif
-
+#endif  // _DASHBOARD_PI_H_
