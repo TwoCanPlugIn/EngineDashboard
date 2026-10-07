@@ -1,5 +1,5 @@
 ---
-version: 2.2
+version: 2.1
 
 debian-steps: &debian-steps
   steps:
@@ -24,6 +24,95 @@ flatpak-steps: &flatpak-steps
     - run: ci/git-push.sh /build-flatpak
 
 jobs:
+  #Flatpak
+  build-flatpak-arm64:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: arm.medium
+    environment:
+      - OCPN_TARGET: flatpak-arm64
+      - CMAKE_BUILD_PARALLEL_LEVEL: 2
+      - BRANCH: 2208
+    parameters:
+      cache-key:
+        type: string
+        # Update the last part, here v2, to invalidate cache
+        default: "fp-arm20-v2"
+    <<: *flatpak-steps
+
+  build-flatpak-arm64-2408:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: arm.medium
+    environment:
+      - OCPN_TARGET: flatpak-arm64
+      - CMAKE_BUILD_PARALLEL_LEVEL: 2
+      - BRANCH: 2408
+    parameters:
+      cache-key:
+        type: string
+        # Update the last part, here v2, to invalidate cache
+        default: "fp-arm24-v2"
+    <<: *flatpak-steps
+
+  build-flatpak-arm64-2508:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: arm.medium
+    environment:
+      - OCPN_TARGET: flatpak-arm64
+      - CMAKE_BUILD_PARALLEL_LEVEL: 2
+      - BRANCH: 2508
+    parameters:
+      cache-key:
+        type: string
+        # Update the last part, here v2, to invalidate cache
+        default: "fp-arm25-v2"
+    <<: *flatpak-steps
+
+  build-flatpak-x86:
+    machine:
+      image: ubuntu-2204:current
+    environment:
+      - OCPN_TARGET: flatpak
+      - CMAKE_BUILD_PARALLEL_LEVEL: 2
+      - BRANCH: 2208
+    parameters:
+      cache-key:
+        type: string
+        # Update the last part, here v2, to invalidate cache
+        default: "fp-x86-20-v2"
+    <<: *flatpak-steps
+
+  build-flatpak-x86-2408:
+    machine:
+      image: ubuntu-2204:current
+    environment:
+      - OCPN_TARGET: flatpak
+      - CMAKE_BUILD_PARALLEL_LEVEL: 2
+      - BRANCH: 2408
+    parameters:
+      cache-key:
+        type: string
+        # Update the last part, here v2, to invalidate cache
+        default: "fp-x86-24-v2"
+    <<: *flatpak-steps
+
+  build-flatpak-x86-2508:
+    machine:
+      image: ubuntu-2204:current
+    environment:
+      - OCPN_TARGET: flatpak
+      - CMAKE_BUILD_PARALLEL_LEVEL: 2
+      - BRANCH: 2508
+    parameters:
+      cache-key:
+        type: string
+        # Update the last part, here v2, to invalidate cache
+        default: "fp-x86-25-v2"
+    <<: *flatpak-steps
+
+  #Bookworm
   build-bookworm:
     machine:
       image: ubuntu-2204:current
@@ -52,6 +141,7 @@ jobs:
       - run: cd build-debian; /bin/bash < upload.sh
       - run: ci/git-push.sh build-debian
 
+  #Trixie
   build-trixie:
     machine:
       image: ubuntu-2204:current
@@ -80,65 +170,7 @@ jobs:
       - run: cd build-debian; /bin/bash < upload.sh
       - run: ci/git-push.sh build-debian
 
-  build-flatpak-arm64:
-    machine:
-      image: ubuntu-2204:current
-    resource_class: arm.medium
-    environment:
-      - OCPN_TARGET: flatpak-arm64
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-      - BRANCH: stable
-    parameters:
-      cache-key:
-        type: string
-        # Update the last part, here v2, to invalidate cache
-        default: "fp-arm20-v2"
-    <<: *flatpak-steps
-
-  build-flatpak-arm64-2408:
-    machine:
-      image: ubuntu-2204:current
-    resource_class: arm.medium
-    environment:
-      - OCPN_TARGET: flatpak-arm64
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-      - BRANCH: beta
-    parameters:
-      cache-key:
-        type: string
-        # Update the last part, here v2, to invalidate cache
-        default: "fp-arm20-v2"
-    <<: *flatpak-steps
-
-
-  build-flatpak-x86:
-    machine:
-      image: ubuntu-2204:current
-    environment:
-      - OCPN_TARGET: flatpak
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-      - BRANCH: stable
-    parameters:
-      cache-key:
-        type: string
-        # Update the last part, here v2, to invalidate cache
-        default: "fp-x86-20-v2"
-    <<: *flatpak-steps
-
-  build-flatpak-x86-2408:
-    machine:
-      image: ubuntu-2204:current
-    environment:
-      - OCPN_TARGET: flatpak
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-      - BRANCH: beta
-    parameters:
-      cache-key:
-        type: string
-        # Update the last part, here v2, to invalidate cache
-        default: "fp-x86-20-v2"
-    <<: *flatpak-steps
-
+  #MacOS
   build-macos-universal:
     macos:
       xcode: "15.4.0"
@@ -166,33 +198,7 @@ jobs:
       - run: cd build-osx; /bin/bash < upload.sh
       - run: ci/git-push.sh  build-osx
 
-  build-macos-intel-legacy:
-    macos:
-      xcode: "14.3.1"
-    environment:
-      - OCPN_TARGET: macos
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-      - OSX_ARCHITECTURES: x86_64
-    steps:
-      - checkout
-      - run: sudo chmod go+w /usr/local
-      - restore_cache:
-          key: "{{checksum \"build-deps/macos-cache-stamp\"}}\
-            -{{checksum \"cmake/MacosWxwidgets.cmake\"}}\
-            -{{checksum \"ci/circleci-build-macos.sh\"}}"
-      - run: ci/circleci-build-macos.sh
-      - save_cache:
-          key: "{{checksum \"build-deps/macos-cache-stamp\"}}\
-            -{{checksum \"cmake/MacosWxwidgets.cmake\"}}\
-            -{{checksum \"ci/circleci-build-macos.sh\"}}"
-          paths:
-            - /tmp/local.cache.tar
-            - /Users/distiller/project/cache
-      - run: >
-          sh -c "otool -L build-osx/app/*/OpenCPN.app/Contents/PlugIns/*.dylib"
-      - run: cd build-osx; /bin/bash < upload.sh
-      - run: ci/git-push.sh  build-osx
-
+  #Android
   build-android-arm64:
     docker:
       - image: cimg/android:2023.08-ndk
@@ -226,39 +232,32 @@ workflows:
   version: 2
   build_all:
     jobs:
-
+      ### Flatpaks ###
       - build-flatpak-arm64:
           <<: *std-filters
-
-      - build-flatpak-x86:
-          <<: *std-filters
-
       - build-flatpak-arm64-2408:
           <<: *std-filters
-
+      - build-flatpak-arm64-2508:
+          <<: *std-filters
+      - build-flatpak-x86:
+          <<: *std-filters
       - build-flatpak-x86-2408:
           <<: *std-filters
-
-      - build-macos-universal:
+      - build-flatpak-x86-2508:
           <<: *std-filters
 
-      - build-macos-intel-legacy:
+      #### Debian12 Bookworm ###
+      - build-bookworm:
           <<: *std-filters
-
-#      - build-android-arm64:
-#          <<: *std-filters
-
-#      - build-android-armhf:
-#          <<: *std-filters
-
       - build-bookworm-arm64:
           <<: *std-filters
 
-      - build-bookworm:
-          <<: *std-filters
-
+      #### Debian13 Trixie ###
       - build-trixie:
           <<: *std-filters
-
       - build-trixie-arm64:
+          <<: *std-filters
+
+      #### MacOS ###
+      - build-macos-universal:
           <<: *std-filters
