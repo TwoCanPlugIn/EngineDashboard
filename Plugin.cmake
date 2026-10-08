@@ -13,16 +13,16 @@
 # -------- Options ----------
 
 set(OCPN_TEST_REPO
-    "twocanplugin/engineplugin-alpha"
+    "steven-adler/engineplugin-alpha"
     CACHE STRING "Default repository for untagged builds"
 )
 set(OCPN_BETA_REPO
-    "twocanplugin/engineplugin-beta"
+    "steven-adler/engineplugin-beta"
     CACHE STRING
     "Default repository for tagged builds matching 'beta'"
 )
 set(OCPN_RELEASE_REPO
-    "twocanplugin/engineplugin-prod"
+    "steven-adler/engineplugin-prod"
     CACHE STRING
     "Default repository for tagged builds not matching 'beta'"
 )
