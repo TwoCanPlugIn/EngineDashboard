@@ -49,6 +49,7 @@ public:
     wxFontPickerCtrl     *m_pFontPickerLabel;
     wxFontPickerCtrl     *m_pFontPickerSmall;
     wxChoice             *m_pChoicePressureUnit;
+	wxChoice			 *m_pChoiceVolumeUnit;
     wxSpinCtrl           *m_pSpinSpeedMax;
     wxCheckBox           *m_pCheckBoxTwentyFourVolts;
     wxCheckBox           *m_pCheckBoxDualengine;

@@ -47,6 +47,11 @@ enum {
 	TEMPERATURE_FAHRENHEIT
 };
 
+enum {
+	VOLUME_LITRE,
+	VOLUME_GALLON
+};
+
 
 //  DashboardWindow
 //  The actual panel that hosts a column/row of instruments.

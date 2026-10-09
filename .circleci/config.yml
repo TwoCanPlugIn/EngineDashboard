@@ -245,19 +245,17 @@ workflows:
           <<: *std-filters
       - build-flatpak-x86-2508:
           <<: *std-filters
-
-      #### Debian12 Bookworm ###
       - build-bookworm:
           <<: *std-filters
       - build-bookworm-arm64:
           <<: *std-filters
-
-      #### Debian13 Trixie ###
       - build-trixie:
           <<: *std-filters
       - build-trixie-arm64:
           <<: *std-filters
-
-      #### MacOS ###
       - build-macos-universal:
           <<: *std-filters
+	  -  build-android-arm64:
+          <<: *std-filters     
+	  - build-android-armhf:
+          <<: *std-filters   

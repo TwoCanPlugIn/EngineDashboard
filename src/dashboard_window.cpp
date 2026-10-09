@@ -711,8 +711,29 @@ void DashboardWindow::SetInstrumentList(
 		((DashboardInstrument_RudderAngle*)instrument)->SetOptionMarker(5, DIAL_MARKER_REDGREEN, 2);
 		wxString labels[] = { _T("40"), _T("30"), _T("20"), _T("10"), _T("0"), _T("10"), _T("20"), _T("30"), _T("40") };
 		((DashboardInstrument_RudderAngle*)instrument)->SetOptionLabel(10, DIAL_LABEL_HORIZONTAL, wxArrayString(9, labels));
+		}
 		break;
-	}
+	case ID_DBP_MAIN_ENGINE_FUEL_RATE:
+		instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
+		GetInstrumentCaption(id), properties, OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, 0, g_volumeUnit == VOLUME_LITRE ? 10 : 4 );
+		((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
+		((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
+		((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
+		break;
+	case ID_DBP_PORT_ENGINE_FUEL_RATE:
+		instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
+		GetInstrumentCaption(id), properties, OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, 0, g_volumeUnit == VOLUME_LITRE ? 10 : 4);
+		((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
+		((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
+		((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
+		break;
+	case ID_DBP_STBD_ENGINE_FUEL_RATE:
+		instrument = new DashboardInstrument_Speedometer(this, wxID_ANY,
+		GetInstrumentCaption(id), properties, OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, 0, g_volumeUnit == VOLUME_LITRE ? 10 : 4);
+		((DashboardInstrument_Dial*)instrument)->SetOptionLabel(2, DIAL_LABEL_HORIZONTAL);
+		((DashboardInstrument_Dial*)instrument)->SetOptionMarker(1, DIAL_MARKER_SIMPLE, 1);
+		((DashboardInstrument_Dial*)instrument)->SetOptionMainValue(_T("%.1f"), DIAL_POSITION_INSIDE);
+		break;
 	case ID_DBP_FUEL_TANK_GAUGE_01:
 		instrument = new DashboardInstrument_Block(this, wxID_ANY, GetInstrumentCaption(id), OCPN_DBP_STC_TANK_LEVEL_FUEL_GAUGE_01, "%s");
 		break;
@@ -744,6 +765,7 @@ void DashboardWindow::SetInstrumentList(
 		instrument = new DashboardInstrument_Single(this, wxID_ANY, GetInstrumentCaption(id),
 			properties, OCPN_DBP_STC_HOUSE_BATTERY_HOURS, "%0.1f");
 		break;
+
     }
     if (instrument) {
       instrument->instrumentTypeId = id;
