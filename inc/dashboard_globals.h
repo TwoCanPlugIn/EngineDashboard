@@ -50,6 +50,7 @@ extern int g_tachometerMax;
 // Imperial or Metric units
 extern int g_temperatureUnit;
 extern int g_pressureUnit;
+extern int g_volumeUnit;
 // If a single or dual engine vessel
 extern bool g_dualEngine;
 
@@ -96,6 +97,7 @@ enum {
 	ID_DBP_FUEL_TANK_02, ID_DBP_WATER_TANK_02, ID_DBP_WATER_TANK_03,
 	ID_DBP_FUEL_TANK_GAUGE_01, ID_DBP_FUEL_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_01,
 	ID_DBP_WATER_TANK_GAUGE_02, ID_DBP_WATER_TANK_GAUGE_03, ID_DBP_START_BATTERY_SOC,
+	ID_DBP_MAIN_ENGINE_FUEL_RATE, ID_DBP_PORT_ENGINE_FUEL_RATE, ID_DBP_STBD_ENGINE_FUEL_RATE,
 	ID_DBP_START_BATTERY_HOURS, ID_DBP_HOUSE_BATTERY_SOC, ID_DBP_HOUSE_BATTERY_HOURS,
 	ID_DBP_LAST_ENTRY //this has a reference in one of the routines; defining a "LAST_ENTRY" and setting the reference to it, is one codeline less to change (and find) when adding new instruments :-)
 };

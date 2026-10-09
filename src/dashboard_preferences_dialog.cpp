@@ -433,6 +433,16 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   m_pChoicePressureUnit->SetSelection(g_pressureUnit);
   itemFlexGridSizer04->Add(m_pChoicePressureUnit, 0, wxALIGN_RIGHT | wxALL, 0);
 
+  // Enable the user to specify volumes in litres or gallons
+  wxStaticText* itemStaticTextVolumeU = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Volume units:"),
+	  wxDefaultPosition, wxDefaultSize, 0);
+  itemFlexGridSizer04->Add(itemStaticTextVolumeU, 0, wxEXPAND | wxALL, border_size);
+  wxString m_VolumeUnitChoices[] = { _("Litres"), _("Gallons") };
+  int m_VolumeUnitNChoices = sizeof(m_VolumeUnitChoices) / sizeof(wxString);
+  m_pChoiceVolumeUnit = new wxChoice(itemPanelNotebook02, wxID_ANY, wxDefaultPosition, wxDefaultSize, m_VolumeUnitNChoices, m_VolumeUnitChoices, 0);
+  m_pChoiceVolumeUnit->SetSelection(g_volumeUnit);
+  itemFlexGridSizer04->Add(m_pChoiceVolumeUnit, 0, wxALIGN_RIGHT | wxALL, 0);
+
   wxStaticText* itemStaticTwentyFourVolts = new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Enable 24 volt range for voltmeter. Unchecked defaults to 12 volt:"),
 	  wxDefaultPosition, wxDefaultSize, 0);
   itemFlexGridSizer04->Add(itemStaticTwentyFourVolts, 0, wxEXPAND | wxALL, border_size);
@@ -518,6 +528,7 @@ void DashboardPreferencesDialog::SaveDashboardConfig() {
 	g_dualEngine = m_pCheckBoxDualengine->IsChecked();
 	g_twentyFourVolts = m_pCheckBoxTwentyFourVolts->IsChecked();
 	g_highContrast = m_pCheckBoxHighContrast->IsChecked();
+	g_volumeUnit = m_pChoiceVolumeUnit->GetSelection();
 
   if (curSel != -1) {
     DashboardWindowContainer *cont = m_Config.Item(curSel);

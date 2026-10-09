@@ -76,6 +76,8 @@
 // RADIANS/DEGREES
 #define RADIANS_TO_DEGREES(x) ((x) * 180 / M_PI)
 
+// LITRE to GALLON
+#define LITRES_GALLONS(x) (x / 3.7)
 
 //  instrument_pi  — the plugin entry point
 class Dashboard : public wxTimer, public opencpn_plugin_120 {

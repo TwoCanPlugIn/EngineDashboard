@@ -85,6 +85,7 @@ wxBitmap g_plusBitmap;
 int g_tachometerMax;
 int g_temperatureUnit;
 int g_pressureUnit;
+int g_volumeUnit;
 
 // Global values because used by instances of both the plugin & preference classes
 bool g_dualEngine;
@@ -267,6 +268,12 @@ wxString GetInstrumentCaption(unsigned int id) {
 		return _("House Battery SOC");
 	case ID_DBP_HOUSE_BATTERY_HOURS:
 		return _("House Battery Hours");
+	case ID_DBP_MAIN_ENGINE_FUEL_RATE:
+		return "Main Engine Fuel Rate";
+	case ID_DBP_PORT_ENGINE_FUEL_RATE:
+		return "Port Engine Fuel Rate";
+	case ID_DBP_STBD_ENGINE_FUEL_RATE:
+		return "Stbd Engine Fuel Rate";
 	default:
 		return _("");
 	}
@@ -309,6 +316,9 @@ void GetListItemForInstrument(wxListItem& item, unsigned int id) {
 	case ID_DBP_START_BATTERY_VOLTS:
 	case ID_DBP_HOUSE_BATTERY_AMPS:
 	case ID_DBP_START_BATTERY_AMPS:
+	case ID_DBP_MAIN_ENGINE_FUEL_RATE:
+	case ID_DBP_PORT_ENGINE_FUEL_RATE:
+	case ID_DBP_STBD_ENGINE_FUEL_RATE:
 		item.SetImage(1);
 		break;
 	case ID_DBP_FUEL_TANK_GAUGE_01:

@@ -517,6 +517,35 @@ void Dashboard::ParseSignalK(wxJSONValue & update) {
 						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_EXHAUST, Celsius2Fahrenheit(CONVERT_KELVIN(value.AsDouble())), _T("\u00B0 F"));
 					}
 				}
+				// Fuel Rate
+				else if (g_volumeUnit == VOLUME_LITRE) {
+					if ((update_path == _T("propulsion.port.fuel.rate")) && (!g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, value.AsDouble() / 10, "L/Hour");
+					}
+
+					if ((update_path == _T("propulsion.port.fuel.rate")) && (g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE,value.AsDouble() / 10, "L/Hour");
+					}
+
+					if (update_path == _T("propulsion.starboard.fuel.rate")) {
+						// dualEngine = TRUE;
+						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, value.AsDouble() / 10, "L/Hour");
+					}
+				}
+				else if (g_volumeUnit == VOLUME_GALLON) {
+					if ((update_path == _T("propulsion.port.fuel.rate")) && (!g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, LITRES_GALLONS(value.AsDouble() / 10), "Gal/Hr");
+					}
+
+					if ((update_path == _T("propulsion.port.fuel.rate")) && (g_dualEngine)) {
+						SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, LITRES_GALLONS(value.AsDouble() / 10), "Gal/Hr");
+					}
+
+					if (update_path == _T("propulsion.starboard.fuel.rate")) {
+						// dualEngine = TRUE;
+						SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, LITRES_GALLONS(value.AsDouble() / 10), "Gal/Hr");
+					}
+				}
 				// Units are in seconds
 				if ((update_path == _T("propulsion.port.runTime")) && (!g_dualEngine)) {
 					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_HOURS, value.AsInt() / 3600.0, "Hrs");
@@ -1654,7 +1683,7 @@ void Dashboard::HandleN2K_127489(ObservedEvt ev) {
 	unsigned short alternatorPotential; // 0.01 Volts
 	alternatorPotential = payload[index + 7] | (payload[index + 8] << 8);
 
-	unsigned short fuelRate; // 0.1 Litres/hour
+	short fuelRate; // 0.1 Litres/hour
 	fuelRate = payload[index + 9] | (payload[index + 10] << 8);
 
 	unsigned int totalEngineHours;  // seconds
@@ -1743,7 +1772,14 @@ void Dashboard::HandleN2K_127489(ObservedEvt ev) {
 			if (IsDataValid(statusOne)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
 			}
-
+			if (IsDataValid(fuelRate)) {
+				if (g_volumeUnit == VOLUME_LITRE) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, fuelRate / 10.0, "L/Hour");
+				}
+				if (g_volumeUnit == VOLUME_GALLON) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_PORT_ENGINE_FUEL_RATE, LITRES_GALLONS(fuelRate / 10.0), "Gal/Hr");
+				}
+			}
 		}
 		else {
 			if (IsDataValid(oilPressure)) {
@@ -1773,6 +1809,14 @@ void Dashboard::HandleN2K_127489(ObservedEvt ev) {
 
 			if (IsDataValid(statusOne)) {
 				SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
+			}
+			if (IsDataValid(fuelRate)) {
+				if (g_volumeUnit == VOLUME_LITRE) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
+				}
+				if (g_volumeUnit == VOLUME_GALLON) {
+					SendSentenceToAllInstruments(OCPN_DBP_STC_MAIN_ENGINE_FUEL_RATE, LITRES_GALLONS(fuelRate / 10), "Gal/Hr");
+				}
 			}
 		}
 		break;
@@ -1804,6 +1848,14 @@ void Dashboard::HandleN2K_127489(ObservedEvt ev) {
 
 		if (IsDataValid(statusOne)) {
 			SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FAULT_ONE, statusOne, wxEmptyString);
+		}
+		if (IsDataValid(fuelRate)) {
+			if (g_volumeUnit == VOLUME_LITRE) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, fuelRate / 10, "L/Hour");
+			}
+			if (g_volumeUnit == VOLUME_GALLON) {
+				SendSentenceToAllInstruments(OCPN_DBP_STC_STBD_ENGINE_FUEL_RATE, LITRES_GALLONS(fuelRate / 10), "Gal/Hr");
+			}
 		}
 
 		break;
@@ -2399,6 +2451,7 @@ bool Dashboard::LoadConfig(void) {
 	pConf->Read(_T("PressureUnit"), &g_pressureUnit, PRESSURE_BAR);
 	pConf->Read(_T("DualEngine"), &g_dualEngine, false);
 	pConf->Read(_T("TwentyFourVolt"), &g_twentyFourVolts, false);
+	pConf->Read(_T("VolumeUnit"), &g_volumeUnit, VOLUME_LITRE);
 	pConf->Read(_T("HighContrast"), &g_highContrast, false);
 
     pConf->Read("PrefWidth", &g_dashPrefWidth, 0);
@@ -2626,6 +2679,7 @@ bool Dashboard::SaveConfig(void) {
 	pConf->Write(_T("PressureUnit"), g_pressureUnit);
 	pConf->Write(_T("DualEngine"), g_dualEngine);
 	pConf->Write(_T("TwentyFourVolt"), g_twentyFourVolts);
+	pConf->Write(_T("VolumeUnit"), g_volumeUnit);
 	pConf->Write(_T("HighContrast"), g_highContrast);
 
     pConf->Write("DashboardCount", (int)m_ArrayOfDashboardWindow.GetCount());
