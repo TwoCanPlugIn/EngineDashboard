@@ -8,6 +8,7 @@ image:
 
 platform:
   - Win32
+  - x64
 
 configuration: RelWithDebInfo
 test: false
@@ -15,7 +16,7 @@ test: false
 before_build:
   - git submodule update --init opencpn-libs
   - set "VS_HOME=C:\Program Files\Microsoft Visual Studio\2022"
-  - call "%VS_HOME%\Community\VC\Auxiliary\Build\vcvars32.bat"
+  - if "%PLATFORM%"=="x64" (call "%VS_HOME%\Community\VC\Auxiliary\Build\vcvars64.bat") else (call "%VS_HOME%\Community\VC\Auxiliary\Build\vcvars32.bat")
 
 build_script:
   - call ci\appveyor.bat

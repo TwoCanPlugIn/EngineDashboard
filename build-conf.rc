@@ -1,4 +1,4 @@
-#  How often android is built. 
+#  How often android is built.
 #    0: never
 #    1: always
 #    other numbers: For example 10 means every tenth build.

@@ -28,6 +28,3 @@ index 4cd9af0..8326ee6 100644
      #define wxNOEXCEPT noexcept
 --
 2.35.1.windows.1
-
-
-

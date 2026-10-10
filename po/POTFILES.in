@@ -1,0 +1,12 @@
+src/add_instrument_dlg.cpp
+src/dashboard_globals.cpp
+src/dashboard_pi.cpp
+src/dashboard_preferences_dialog.cpp
+src/dashboard_window.cpp
+src/dial.cpp
+src/edit_dialog.cpp
+src/instrument.cpp
+src/ocpn_font_button.cpp
+src/rudder_angle.cpp
+src/speedometer.cpp
+

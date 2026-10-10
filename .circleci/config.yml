@@ -24,21 +24,61 @@ flatpak-steps: &flatpak-steps
     - run: ci/git-push.sh /build-flatpak
 
 jobs:
-  #Flatpak
-  build-flatpak-arm64:
+  build-bookworm:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: medium
+    environment:
+      - OCPN_TARGET: bookworm
+      - TARGET_TUPLE: debian-x86_64;12;x86_64
+      - CMAKE_BUILD_PARALLEL_LEVEL: 2
+    steps:
+      - checkout
+      - run: ci/circleci-build-debian-docker.sh
+      - run: cd build-debian; /bin/bash < upload.sh
+      - run: ci/git-push.sh build-debian
+
+  build-bookworm-arm64:
     machine:
       image: ubuntu-2204:current
     resource_class: arm.medium
     environment:
-      - OCPN_TARGET: flatpak-arm64
+      - OCPN_TARGET: bookworm
+      - TARGET_TUPLE: debian-arm64;12;arm64
       - CMAKE_BUILD_PARALLEL_LEVEL: 2
-      - BRANCH: 2208
-    parameters:
-      cache-key:
-        type: string
-        # Update the last part, here v2, to invalidate cache
-        default: "fp-arm20-v2"
-    <<: *flatpak-steps
+    steps:
+      - checkout
+      - run: ci/circleci-build-debian-docker.sh
+      - run: cd build-debian; /bin/bash < upload.sh
+      - run: ci/git-push.sh build-debian
+
+  build-trixie:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: medium
+    environment:
+      - OCPN_TARGET: trixie
+      - TARGET_TUPLE: debian-x86_64;13;x86_64
+      - CMAKE_BUILD_PARALLEL_LEVEL: 2
+    steps:
+      - checkout
+      - run: ci/circleci-build-debian-docker.sh
+      - run: cd build-debian; /bin/bash < upload.sh
+      - run: ci/git-push.sh build-debian
+
+  build-trixie-arm64:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: arm.medium
+    environment:
+      - OCPN_TARGET: trixie
+      - TARGET_TUPLE: debian-arm64;13;arm64
+      - CMAKE_BUILD_PARALLEL_LEVEL: 2
+    steps:
+      - checkout
+      - run: ci/circleci-build-debian-docker.sh
+      - run: cd build-debian; /bin/bash < upload.sh
+      - run: ci/git-push.sh build-debian
 
   build-flatpak-arm64-2408:
     machine:
@@ -70,20 +110,6 @@ jobs:
         default: "fp-arm25-v2"
     <<: *flatpak-steps
 
-  build-flatpak-x86:
-    machine:
-      image: ubuntu-2204:current
-    environment:
-      - OCPN_TARGET: flatpak
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-      - BRANCH: 2208
-    parameters:
-      cache-key:
-        type: string
-        # Update the last part, here v2, to invalidate cache
-        default: "fp-x86-20-v2"
-    <<: *flatpak-steps
-
   build-flatpak-x86-2408:
     machine:
       image: ubuntu-2204:current
@@ -97,7 +123,6 @@ jobs:
         # Update the last part, here v2, to invalidate cache
         default: "fp-x86-24-v2"
     <<: *flatpak-steps
-
   build-flatpak-x86-2508:
     machine:
       image: ubuntu-2204:current
@@ -112,65 +137,6 @@ jobs:
         default: "fp-x86-25-v2"
     <<: *flatpak-steps
 
-  #Bookworm
-  build-bookworm:
-    machine:
-      image: ubuntu-2204:current
-    resource_class: medium
-    environment:
-      - OCPN_TARGET: bookworm
-      - TARGET_TUPLE: debian-x86_64;12;x86_64
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-    steps:
-      - checkout
-      - run: ci/circleci-build-debian-docker.sh
-      - run: cd build-debian; /bin/bash < upload.sh
-      - run: ci/git-push.sh build-debian
-
-  build-bookworm-arm64:
-    machine:
-      image: ubuntu-2204:current
-    resource_class: arm.medium
-    environment:
-      - OCPN_TARGET: bookworm
-      - TARGET_TUPLE: debian-arm64;12;arm64
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-    steps:
-      - checkout
-      - run: ci/circleci-build-debian-docker.sh
-      - run: cd build-debian; /bin/bash < upload.sh
-      - run: ci/git-push.sh build-debian
-
-  #Trixie
-  build-trixie:
-    machine:
-      image: ubuntu-2204:current
-    resource_class: medium
-    environment:
-      - OCPN_TARGET: trixie
-      - TARGET_TUPLE: debian-x86_64;13;x86_64
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-    steps:
-      - checkout
-      - run: ci/circleci-build-debian-docker.sh
-      - run: cd build-debian; /bin/bash < upload.sh
-      - run: ci/git-push.sh build-debian
-
-  build-trixie-arm64:
-    machine:
-      image: ubuntu-2204:current
-    resource_class: arm.medium
-    environment:
-      - OCPN_TARGET: trixie
-      - TARGET_TUPLE: debian-arm64;13;arm64
-      - CMAKE_BUILD_PARALLEL_LEVEL: 2
-    steps:
-      - checkout
-      - run: ci/circleci-build-debian-docker.sh
-      - run: cd build-debian; /bin/bash < upload.sh
-      - run: ci/git-push.sh build-debian
-
-  #MacOS
   build-macos-universal:
     macos:
       xcode: "15.4.0"
@@ -198,7 +164,6 @@ jobs:
       - run: cd build-osx; /bin/bash < upload.sh
       - run: ci/git-push.sh  build-osx
 
-  #Android
   build-android-arm64:
     docker:
       - image: cimg/android:2023.08-ndk
@@ -229,33 +194,39 @@ std-filters: &std-filters
         - /tmp-.*/
 
 workflows:
-  version: 2
+  version: 2.1
   build_all:
     jobs:
-      ### Flatpaks ###
-      - build-flatpak-arm64:
-          <<: *std-filters
+
       - build-flatpak-arm64-2408:
           <<: *std-filters
-      - build-flatpak-arm64-2508:
-          <<: *std-filters
-      - build-flatpak-x86:
-          <<: *std-filters
+
       - build-flatpak-x86-2408:
           <<: *std-filters
+
+      - build-flatpak-arm64-2508:
+          <<: *std-filters
+
       - build-flatpak-x86-2508:
           <<: *std-filters
-      - build-bookworm:
-          <<: *std-filters
-      - build-bookworm-arm64:
-          <<: *std-filters
-      - build-trixie:
-          <<: *std-filters
-      - build-trixie-arm64:
-          <<: *std-filters
+
       - build-macos-universal:
           <<: *std-filters
-	  -  build-android-arm64:
-          <<: *std-filters     
-	  - build-android-armhf:
-          <<: *std-filters   
+
+      - build-android-arm64:
+          <<: *std-filters
+
+      - build-android-armhf:
+          <<: *std-filters
+
+      - build-bookworm-arm64:
+          <<: *std-filters
+
+      - build-bookworm:
+          <<: *std-filters
+
+      - build-trixie:
+          <<: *std-filters
+
+      - build-trixie-arm64:
+          <<: *std-filters

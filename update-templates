@@ -2,7 +2,7 @@
 #
 # Update a plugin with new shipdriver templates.
 #
-# usage: See usage() below.
+# usage: ./update-templates [-t] [treeish]
 #
 # Merge changes from upstream shipdriver repo into
 # current branch.
@@ -15,13 +15,14 @@ Usage:
     update-templates [-T]  <treeish>
     update-templates [-h |-l]
 
+
 Parameters:
     treeish:
          A shipdriver tag or branch.
     Recommended usage is using the latest stable (non-beta) tag
 
 Options:
-    -l   List available shipdriver tags (slow)
+    -l   List available shipdriver tags
     -h   Print this message and exit
     -T   Test mode, do not auto-update
 
@@ -63,7 +64,7 @@ function update_dir() {
     git checkout $treeish $d
     git add $d
     git diff-index --quiet --cached HEAD -- || {
-        git commit --no-verify -m "Templates: Updating $d"
+        git commit -m "Templates: Updating $d"
     }
 }
 
@@ -159,6 +160,7 @@ for f in \
     .cmake-format.yaml \
     .gitattributes \
     .gitignore \
+    .pre-commit-config.yaml \
     INSTALL.md \
     plugin.xml.in \
     .travis.yml \
@@ -170,7 +172,7 @@ do
     git checkout $source_treeish $f
     git add $f || git add --renormalize $f
 done
-git commit --no-verify -m "Templates: Updating other files"
+git commit -m "Templates: Updating other files"
 
 # Handle opencpn-libs submodule
 test -d opencpn-libs || \
@@ -179,7 +181,7 @@ git submodule update --remote --merge opencpn-libs
 git add opencpn-libs
 git diff-index --quiet --cached HEAD -- || {
     echo "Updating opencpn-libs submodule"
-    git commit --no-verify -m "opencpn-libs: Update to latest version."
+    git commit -m "opencpn-libs: Update to latest version."
 }
 sed -i 's|leamas/opencpn-libs|opencpn/opencpn-libs|g' \
     .git/modules/opencpn-libs/config || :
@@ -187,23 +189,23 @@ sed -i 's|leamas/opencpn-libs|opencpn/opencpn-libs|g' \
 
 # Update flatpak runtime version as required:
 $SED_I \
-    -e '/sdk: org.freedesktop.Sdk/s/20.08/22.08/' \
+    -e '/sdk: org.freedesktop.Sdk/s/2[02].08/24.08/' \
     -e '/^runtime-version:/s/:.*/: stable/' \
   flatpak/org.opencpn.OpenCPN.Plugin.*.yaml
 git add flatpak
 git diff-index --quiet --cached HEAD -- || {
-    echo "Updating Updating flatpak runtime version to 22.08"
-    git commit --no-verify -m "opencpn-libs: Update to latest version."
+    echo "Updating Updating flatpak runtime version to 24.08"
+    git commit -m "opencpn-libs: Update to latest version."
 }
 
 # Check for files/dirs which are private, but should be copied on first run.
 for f in  \
-    .pre-commit-config.yaml \
     config.h.in \
     build-deps \
     build-conf.rc \
     libs \
     build-deps/macos-cache-stamp \
+    build-deps/control \
     build-deps/0001-matrix.h-Patch-attributes-handling-wxwidgets-22790.patch \
     UPDATE_PLUGIN_API.md
 do
@@ -212,7 +214,7 @@ do
 done
 git diff-index --quiet --cached HEAD -- || {
     echo "Adding initial versions of private data"
-    git commit --no-verify -m "Adding initial versions of private data"
+    git commit -m "Adding initial versions of private data"
 }
 
 # Update wxwidgets deps in build-deps/control to handle wxwidgets 3.2
@@ -238,8 +240,7 @@ rm -f $wxtemp
 git diff --quiet build-deps/control || {
     echo "Updating wxwidgets dependencies in build-deps/control"
     git add build-deps/control
-    git commit --no-verify \
-        -m "build-deps/control: Updating wxwidgets dependencies"
+    git commit -m "build-deps/control: Updating wxwidgets dependencies"
 }
 
 if [ -e update-ignored ]; then
@@ -249,15 +250,14 @@ if [ -e update-ignored ]; then
     done
 fi
 
-if [ git grep -q libunarr-dev build-deps/control ]; then
-    $SED_I -e '/libunarr/s/^.*$/libarchive-dev (>= 3.7.4) | libunarr-dev,/' \
+if git grep -q libunarr-dev build-deps/control; then
+    $SED_I -e '/libunarr/s/^.*$/ libarchive-dev (>= 3.7.4) | libunarr-dev,/' \
       build-deps/control
 fi
 git diff --quiet build-deps/control || {
     echo "Updating libunarr-dev dependency in  build-deps/control"
     git add build-deps/control
-    git commit --no-verify \
-        -m "build-deps/control: Updating libunarr-dev dependency"
+    git commit -m "build-deps/control: Updating libunarr-dev dependency"
 }
 
 for f in buildosx buildwin/NSIS* libs/AndroidLibs.cmake mingw .drone.yml; do
@@ -265,7 +265,7 @@ for f in buildosx buildwin/NSIS* libs/AndroidLibs.cmake mingw .drone.yml; do
 done
 git diff-index --quiet --cached HEAD -- || {
     echo "Removing unused files"
-    git commit --no-verify -am "Templates: Removing obsoleted and unused files."
+    git commit -am "Templates: Removing obsoleted and unused files."
 }
 
 if [ -f cmake/TemplateVersion ]; then
@@ -280,15 +280,29 @@ if [ -f cmake/TemplateVersion ]; then
     git rm -f $src_manifest
 fi
 
+git  grep -q "set(MIN_API_VERSION" Plugin.cmake || {
+  sed -i '/PKG_API_LIB/a \
+\
+# Minimum version which should be loaded. Ignored if api < 22. \
+# Allows plugins using functions from 1.22+ API to be loaded by \
+# hosts only supporting 1.21; plugins then needs to check if host \
+# supports 1.22+ before using such functions. \
+# If undefined, plugin will only be loaded by host supporting the \
+# included api. \
+## set(MIN_API_VERSION 1.21) \
+\
+  ' Plugin.cmake
+}
+
 echo "Create or update cmake/TemplateVersion"
 echo "# Created by update-templates" > cmake/TemplateVersion
 echo "date: $(date -u +'%Y-%m-%d %H:%M UTC')" >> cmake/TemplateVersion
 commit=$(git rev-parse --short $source_treeish)
 echo "commit: $commit" >> cmake/TemplateVersion
-tags=$(git tag --contains $commit)
+tags=$(git tag --points-at $commit | tr '\n' ' ')
 echo "tags: $tags" >> cmake/TemplateVersion
 git add cmake/TemplateVersion
-git commit --no-verify -m "cmake: Update TemplateVersion to $commit"
+git commit -m "cmake: Update TemplateVersion to $commit"
 
 cat << EOF
 

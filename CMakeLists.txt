@@ -29,22 +29,21 @@ endif ()
 #
 include(Plugin.cmake)
 
-#------ Local setup e. g. IDE specific stuff --------
-#
-if (EXISTS ${CMAKE_CURRENT_LIST_DIR}/local_config.cmake)
-  include(${CMAKE_CURRENT_LIST_DIR}/local_config.cmake)
-endif ()
-
 # -------- Setup completed, build the plugin --------
 #
 project(${PKG_NAME} VERSION ${PKG_VERSION})
 include(PluginCompiler)
 
-add_library(${CMAKE_PROJECT_NAME} SHARED EXCLUDE_FROM_ALL cmake/dummy.cpp)
+add_library(${CMAKE_PROJECT_NAME} SHARED EXCLUDE_FROM_ALL ${SRC})
 include_directories(BEFORE ${CMAKE_BINARY_DIR}/include)
 
 add_subdirectory("opencpn-libs/${PKG_API_LIB}")
 target_link_libraries(${CMAKE_PROJECT_NAME} ocpn::api)
+if (NOT "${MIN_API_VERSION}" STREQUAL "")
+  if ("${API_VERSION}" VERSION_GREATER "1.21")
+    set(API_VERSION ${MIN_API_VERSION})
+  endif ()
+endif ()
 
 set(VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(VERSION_MINOR ${PROJECT_VERSION_MINOR})
@@ -62,6 +61,11 @@ string(REGEX REPLACE "\([0-9]\)\.\([0-9]\).*" "ov\\1\\2"
 
 if (COMMAND late_init)
   late_init()
+endif ()
+
+# Optional IDE setup, typically target_include_directories() etc.
+if (EXISTS ide_setup.cmake)
+  include(ide_setup.cmake)
 endif ()
 
 # Configure the flatpak manifest
@@ -82,9 +86,7 @@ if ("${BUILD_TYPE}" STREQUAL "")
   return ()
 endif ()
 
-
 if (NOT ${BUILD_TYPE} STREQUAL "flatpak")
-  target_sources(${CMAKE_PROJECT_NAME} PUBLIC ${SOURCE_FILES})
   # Build package as required (flatpak already dealt with).
   #
   if (APPLE)
@@ -103,7 +105,6 @@ if (NOT ${BUILD_TYPE} STREQUAL "flatpak")
   if (COMMAND add_plugin_libraries)
     add_plugin_libraries()
   endif ()
-
 endif ()
 
 configure_file(

@@ -13,8 +13,6 @@
 #   - Docker installed and running.
 #   - Android builds needs cmake and NDK, see
 #     https://opencpn-manuals.github.io/main/AlternativeWorkflow/Local-Build.html
-#   - Raspbian builds needs a working qemu installation, notably with the
-#     'qemu-user-static' Fedora/Debian package.
 #   - Flatpak builds requires flatpak, flatpak-builder and flathub repo.
 #   - The gui target requires gnome-terminal i. e., Linux.
 #
@@ -61,10 +59,6 @@ if platform.system() == "Linux":
         'Flatpak-2008': {
              'script': 'ci/circleci-build-flatpak.sh',
              'directory': 'build-flatpak'
-         },
-        'Raspbian-armhf': {
-             'script': 'ci/generic-build-raspbian-armhf.sh',
-             'directory': 'build-raspbian'
          }
     }
 elif platform.system() == 'Windows':

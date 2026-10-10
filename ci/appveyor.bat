@@ -1,54 +1,54 @@
 :: Build script for appveyor, https://www.appveyor.com
 :: Builds one version linked against wxWidgets 3.2
+
 @echo off
 setlocal enabledelayedexpansion
+
 set "SCRIPTDIR=%~dp0"
 set "GIT_HOME=C:\Program Files\Git"
+
 :: %CONFIGURATION% comes from appveyor.yml, set a default if invoked elsewise.
 if "%CONFIGURATION%" == "" set "CONFIGURATION=RelWithDebInfo"
+
 call %SCRIPTDIR%..\buildwin\win_deps.bat
-
-:: win_deps.bat ends with refreshenv, which rebuilds PATH from the
-:: registry and drops the session-only PATH set by vcvars32.bat in
-:: appveyor.yml. Restore it here.
-set "VS_HOME=C:\Program Files\Microsoft Visual Studio\2022"
-call "%VS_HOME%\Community\VC\Auxiliary\Build\vcvars32.bat"
-
-:: Pin the python that win_deps.bat just installed cloudsmith-cli /
-:: cryptography into, so refreshenv reordering PATH can't point us
-:: at a different interpreter later.
-for /f "delims=" %%p in ('where python') do (
-    set "PYTHON_EXE=%%p"
-    goto :got_python
-)
-:got_python
-echo Using Python: %PYTHON_EXE%
-
 echo USING wxWidgets_LIB_DIR: !wxWidgets_LIB_DIR!
 echo USING wxWidgets_ROOT_DIR: !wxWidgets_ROOT_DIR!
+
 if not defined VCINSTALLDIR (
   for /f "tokens=* USEBACKQ" %%p in (
     `"%programfiles(x86)%\Microsoft Visual Studio\Installer\vswhere" ^
     -latest -property installationPath`
   ) do call "%%p\Common7\Tools\vsDevCmd.bat"
 )
+
 if exist build (rmdir /s /q build)
 mkdir build && cd build
-cmake -A Win32 -G "Visual Studio 17 2022" ^
-    -DCMAKE_GENERATOR_PLATFORM=Win32 ^
+
+set "GENERATOR_PLATFORM=Win32"
+set "OCPN_TARGET=msvc-wx32;10;x86"
+if /I "%PLATFORM%"=="x64" (
+  set "GENERATOR_PLATFORM=x64"
+  set "OCPN_TARGET=msvc-64;10;x86_64"
+)
+
+cmake -A %GENERATOR_PLATFORM% -G "Visual Studio 17 2022" ^
+    -DCMAKE_GENERATOR_PLATFORM=%GENERATOR_PLATFORM% ^
     -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
     -DwxWidgets_LIB_DIR=!wxWidgets_LIB_DIR! ^
     -DwxWidgets_ROOT_DIR=!wxWidgets_ROOT_DIR! ^
-    -DOCPN_TARGET_TUPLE=msvc-wx32;10;x86_64 ^
-    ..
-cmake --build . --target tarball --config %CONFIGURATION%
+    -DOCPN_TARGET_TUPLE=%OCPN_TARGET% ^
+    .. || exit /b 1
+cmake --build . --target tarball --config %CONFIGURATION% || exit /b 1
+
 :: Display dependencies debug info
 echo import glob; import subprocess > ldd.py
 echo lib = glob.glob("app/*/plugins/*.dll")[0] >> ldd.py
 echo subprocess.call(['dumpbin', '/dependents', lib], shell=True) >> ldd.py
-%PYTHON_EXE% ldd.py
+python ldd.py
+
 echo Uploading artifact
-call upload.bat
+call upload.bat || exit /b 1
+
 echo Pushing updates to catalog
-%PYTHON_EXE% %SCRIPTDIR%..\ci\git-push
+python %SCRIPTDIR%..\ci\git-push || exit /b 1
 cd ..
