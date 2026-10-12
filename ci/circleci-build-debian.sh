@@ -3,61 +3,57 @@
 #
 # Build the Debian artifacts
 #
+
+# Copyright (c) 2021 Alec Leamas
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+
+
 set -xe
+here=$(cd $(dirname $0); pwd -P)
 
-if [ "${CIRCLECI_LOCAL,,}" = "true" ]; then
-    if [[ -d ~/circleci-cache ]]; then
-        if [[ -f ~/circleci-cache/apt-proxy ]]; then
-            cat ~/circleci-cache/apt-proxy | sudo tee -a /etc/apt/apt.conf.d/00aptproxy
-            cat /etc/apt/apt.conf.d/00aptproxy
-        fi
-    fi
-fi
-
-sudo apt-get -qq update
-sudo apt-get install devscripts equivs
-
-# Install extra build libs
-ME=$(echo ${0##*/} | sed 's/\.sh//g')
-EXTRA_LIBS=./ci/extras/extra_libs.txt
-if test -f "$EXTRA_LIBS"; then
-    while read -r line; do
-        sudo apt-get install $line
-    done < "$EXTRA_LIBS"
-fi
-EXTRA_LIBS=./ci/extras/${ME}_extra_libs.txt
-if test -f "$EXTRA_LIBS"; then
-    while read -r line; do
-        sudo apt-get install $line
-    done < "$EXTRA_LIBS"
-fi
-
-pwd
+# Load local environment if it exists i. e., this is a local build
+if [ -f ~/.config/local-build.rc ]; then source ~/.config/local-build.rc; fi
+if [ -d /ci-source ]; then cd /ci-source; fi
 
 git submodule update --init opencpn-libs
 
-sudo mk-build-deps --install ./ci/control
+# Set up build directory and a visible link in /
+builddir=build-$OCPN_TARGET
+test -d $builddir || sudo mkdir $builddir  && sudo rm -rf $builddir/*
+sudo chmod 777 $builddir
+if [ "$PWD" != "/"  ]; then sudo ln -sf $PWD/$builddir /$builddir; fi
 
-sudo apt-get --allow-unauthenticated install ./*all.deb  || :
-sudo apt-get --allow-unauthenticated install -f
-rm -f ./*all.deb
+# Create a log file.
+exec > >(tee $builddir/build.log) 2>&1;
 
+sudo apt -qq update || apt update
+sudo apt-get -qq install devscripts equivs software-properties-common
 
-if [ -n "$BUILD_GTK3" ] && [ "$BUILD_GTK3" = "TRUE" ]; then
-  sudo update-alternatives --set wx-config /usr/lib/*-linux-*/wx/config/gtk3-unicode-3.0
+mk-build-deps --root-cmd=sudo -ir build-deps/control
+rm -f *changes  *buildinfo
+
+if [ -n "$TARGET_TUPLE" ]; then
+  TARGET_OPT="-DOCPN_TARGET_TUPLE=$TARGET_TUPLE";
 fi
 
-rm -rf build && mkdir build && cd build
+sudo apt install -q \
+    python3-pip python3-setuptools python3-dev python3-wheel \
+    build-essential libssl-dev libffi-dev
 
-tag=$(git tag --contains HEAD)
-current_branch=$(git branch --show-current)
+python3 -m pip install -q --user "urllib3<2.0.0"   # See #520
+python3 -m pip install --user --upgrade -q setuptools wheel pip
+python3 -m pip install --user -q cloudsmith-cli cryptography cmake
 
-if [ -n "$tag" ] || [ "$current_branch" = "master" ]; then
-  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
-else
-  cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/usr/local ..
+cd $builddir
+
+cmake "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-RelWithDbgInfo}" $TARGET_OPT ..
+make VERBOSE=1 tarball
+ldd app/*/lib/opencpn/*.so
+if [ -d /ci-source ]; then
+    sudo chown --reference=/ci-source -R . ../cache || :
 fi
-
-make -j2
-make package
-ls -l
+if [ -z "$CI" ]; then sudo chmod --reference=.. .; fi

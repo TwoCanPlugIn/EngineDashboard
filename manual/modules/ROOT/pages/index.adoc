@@ -30,13 +30,12 @@ Voltage for either single or dual engine vessels.
 
 Fluid levels for Fuel, Water, Oil, Live Well, Grey and Black Waste.
 
-Battery status (voltage and current) for the Start and House batteries.
+Battery status (voltage, current, state of charge, time remaining) for the Start and House batteries.
 
 and Rudder Angle.
 
-It supports both dual and single engine vessels, can display voltage
-ranges for either 12 or 24 volts DC systems and supports a user
-configurable maximum RPM range.
+It supports both dual and single engine vessels, can display voltage ranges for either 
+12 or 24 volts DC systems and supports a user configurable maximum RPM range.
 
 image:engine02.png[]
 
@@ -160,6 +159,8 @@ The following Parameter Groups Numbers (PGN's) are supported when using OpenCPN 
 | | Alternator
 | | Engine Hours 
 |127505 | Fluid Levels
+|127506| Battery State of Charge
+| | Battery Time Remaining
 |127508| Battery Voltage
 | | Battery Current
 |130312 | Exhaust Temperature

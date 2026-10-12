@@ -1,52 +1,52 @@
 #!/usr/bin/env bash
 
 #
-# Build the flatpak artifacts. Uses docker to run Fedora on
-# in full-fledged VM; the actual build is done in the Fedora
-# container.
-#
-# flatpak-builder can be run in a docker image. However, this
-# must then be run in privileged mode, which means it we need
-# a full VM to run it.
+# Build the Flatpak artifacts.
 #
 
-# bailout on errors and echo commands.
-set -xe
+# Copyright (c) 2021-2026 Alec Leamas
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
 
-if [ "${CIRCLECI_LOCAL,,}" = "true" ]; then
-    if [[ -d ~/circleci-cache ]]; then
-        if [[ -f ~/circleci-cache/apt-proxy ]]; then
-            cat ~/circleci-cache/apt-proxy | sudo tee -a /etc/apt/apt.conf.d/00aptproxy
-            cat /etc/apt/apt.conf.d/00aptproxy
-        fi
-    fi
+set -e
+MANIFEST=$(cd flatpak; ls org.opencpn.OpenCPN.Plugin*yaml)
+echo "Using manifest file: $MANIFEST"
+set -x
+
+if [[ "$BRANCH" == 2408 ]]; then
+  export SDK=24.08
+  export FLATHUB_REPO=flathub
+  export FLATHUB_BRANCH=stable
+elif [[  "$BRANCH" == 2508 ]]; then
+  export SDK=25.08
+  export FLATHUB_REPO=flathub-beta
+  export FLATHUB_BRANCH=beta
+else
+  echo "Wrong branch: \"$BRANCH\""
+  exit 1
 fi
 
-sudo apt-get -q -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages update
 
-#PLUGIN=bsb4
-
-sudo apt --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages install flatpak flatpak-builder
-
-# Install extra build libs
-ME=$(echo ${0##*/} | sed 's/\.sh//g')
-EXTRA_LIBS=./ci/extras/extra_libs.txt
-if test -f "$EXTRA_LIBS"; then
-    sudo apt update
-    while read line; do
-        sudo apt-get install $line
-    done < $EXTRA_LIBS
-fi
-EXTRA_LIBS=./ci/extras/${ME}_extra_libs.txt
-if test -f "$EXTRA_LIBS"; then
-    sudo apt update
-    while read line; do
-        sudo apt-get install $line
-    done < $EXTRA_LIBS
-fi
+# Load local environment if it exists i. e., this is a local build
+if [ -f ~/.config/local-build.rc ]; then source ~/.config/local-build.rc; fi
+if [ -d /ci-source ]; then cd /ci-source; fi
 
 git config --global protocol.file.allow always
 git submodule update --init opencpn-libs
+
+# Set up build directory and a visible link in /
+builddir=build-flatpak
+test -d $builddir || sudo mkdir $builddir && sudo rm -rf $builddir/*
+sudo chmod 777 $builddir
+if [ "$PWD" != "/"  ]; then sudo ln -sf $PWD/$builddir /$builddir; fi
+
+# Create a log file.
+exec > >(tee $builddir/build.log) 2>&1
+
+if [ -n "$TRAVIS_BUILD_DIR" ]; then cd $TRAVIS_BUILD_DIR; fi
 
 if [ -n "$CI" ]; then
     sudo apt update
@@ -54,53 +54,65 @@ if [ -n "$CI" ]; then
     # Avoid using outdated TLS certificates, see #210.
     sudo apt install --reinstall  ca-certificates
 
-    # Use updated flatpak workaround
-#    sudo add-apt-repository -y ppa:alexlarsson/flatpak
-#    sudo apt update
-
     # Handle possible outdated key for google packages, see #486
     wget -q -O - https://cli-assets.heroku.com/apt/release.key \
         | sudo apt-key add -
     wget -q -O - https://dl.google.com/linux/linux_signing_key.pub \
         | sudo apt-key add -
 
+    # Use updated flatpak (#457)
+    #sudo add-apt-repository -y ppa:alexlarsson/flatpak
+    #sudo apt update
 
-    # Install flatpak and flatpak-builder - obsoleted by flathub
+    # Install or update flatpak and flatpak-builder
     sudo apt install flatpak flatpak-builder
-
 fi
 
+# The flatpak checksumming needs python3:
+if ! python3 --version 2>&1 >/dev/null; then
+    pyenv local $(pyenv versions | sed 's/*//' | awk '{print $1}' | tail -1)
+    cp .python-version $HOME
+fi
+
+flatpak remote-add --user --if-not-exists flathub-beta \
+    https://flathub.org/beta-repo/flathub-beta.flatpakrepo
 flatpak remote-add --user --if-not-exists \
     flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user -y --noninteractive \
+    flathub org.freedesktop.Sdk//${SDK:-24.08}
 
+set -x
+cd $builddir
 
-if [ "$FLATPAK_BRANCH" = "beta" ]; then
-    flatpak install --user -y flathub org.freedesktop.Sdk//$SDK_VER >/dev/null
-    flatpak remote-add --user --if-not-exists flathub-beta \
-        https://dl.flathub.org/beta-repo/flathub-beta.flatpakrepo
-    flatpak install --user -y flathub-beta \
-        org.opencpn.OpenCPN >/dev/null
-else
-    flatpak install --user -y flathub org.freedesktop.Sdk//$SDK_VER >/dev/null
-    flatpak remote-add --user --if-not-exists flathub \
-        https://dl.flathub.org/repo/flathub.flatpakrepo
-    flatpak install --user -y flathub \
-        org.opencpn.OpenCPN >/dev/null
-    FLATPAK_BRANCH='stable'
+# Patch the manifest to use correct branch and runtime unconditionally
+manifest=$(ls ../flatpak/org.opencpn.OpenCPN.Plugin*yaml)
+sed -i  '/^runtime-version/s/:.*/:'" ${FLATHUB_BRANCH:-stable}/"  $manifest
+sed -i  '/^sdk:/s|//.*|//'"${SDK:-24.08}|"  $manifest
+
+if (( "$BRANCH" >= 2508 )); then
+    # From 25.08 the runtime contains libusb. If manifest has added this,
+    # remove it.
+    sed -i '/libusb/,/name:/d' $manifest
 fi
 
-rm -rf build && mkdir build && cd build
-if [ -n "$WX_VER" ]; then
-    SET_WX_VER="-DWX_VER=$WX_VER"
-else
-    SET_WX_VER=""
-fi
+flatpak install --user -y --or-update --noninteractive \
+    ${FLATHUB_REPO:-flathub}  org.opencpn.OpenCPN
 
-if [ "$FLATPAK_BRANCH" = '' ]; then
-    cmake -DOCPN_TARGET=$OCPN_TARGET -DBUILD_ARCH=$BUILD_ARCH -DOCPN_FLATPAK_CONFIG=ON -DSDK_VER=$SDK_VER -DFLATPAK_BRANCH='beta' $SET_WX_VER ..
-else
-    cmake -DOCPN_TARGET=$OCPN_TARGET -DBUILD_ARCH=$BUILD_ARCH -DOCPN_FLATPAK_CONFIG=ON -DSDK_VER=$SDK_VER -DFLATPAK_BRANCH=$FLATPAK_BRANCH $SET_WX_VER ..
-fi
+# Configure and build the plugin tarball and metadata.
+cmake \
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} \
+    -DOCPN_TARGET_TUPLE="flatpak-$(uname -m);${SDK};$(uname -m)" \
+    ..
+# Do not build flatpak in parallel; make becomes unreliable
+make -j 1 VERBOSE=1 flatpak
 
-make flatpak-build
-make flatpak-pkg
+# Restore permissions and owner in build tree.
+if [ -d /ci-source ]; then sudo chown --reference=/ci-source -R . ../cache; fi
+sudo chown --reference=.. .
+
+# Install cloudsmith and cryptography, required by upload script and git-push
+python3 -m pip install -q --user --upgrade pip
+python3 -m pip install -q --user cloudsmith-cli cryptography
+
+# python install scripts in ~/.local/bin, teach upload.sh to use this in PATH
+echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.uploadrc

@@ -1,8 +1,3 @@
-//
-// This file is part of Engine Dashboard, a plugin for OpenCPN.
-// based on the original version of the dashboard.
-// Author: Steven Adler
-//
 /******************************************************************************
  * $Id: speedometer.h, v1.0 2010/08/05 SethDart Exp $
  *
@@ -30,40 +25,35 @@
  ***************************************************************************
  */
 
-#ifndef _SPEEDOMETER_H_
-#define _SPEEDOMETER_H_
+#ifndef __Speedometer_H__
+#define __Speedometer_H__
 
 // For compilers that support precompilation, includes "wx/wx.h".
 #include <wx/wxprec.h>
 
 #ifdef __BORLANDC__
-    #pragma hdrstop
+#pragma hdrstop
 #endif
 
 // for all others, include the necessary headers (this file is usually all you
 // need because it includes almost all "standard" wxWidgets headers)
 #ifndef WX_PRECOMP
-    #include <wx/wx.h>
+#include <wx/wx.h>
 #endif
 
 #include "dial.h"
 
-//
-// CLASS:
-//    DashboardInstrument_Speedometer
-//
-// DESCRIPTION:
-//    This class creates a speedometer style control
-//
-//
-class DashboardInstrument_Speedometer: public DashboardInstrument_Dial {
+// DashboardInstrument_Speedometer, creates a speedometer style control
+class DashboardInstrument_Speedometer : public DashboardInstrument_Dial {
 public:
-	DashboardInstrument_Speedometer(wxWindow *parent, wxWindowID id, wxString title, DASH_CAP cap_flag, int s_value, int e_value);
-	~DashboardInstrument_Speedometer(void);
+  DashboardInstrument_Speedometer(wxWindow* parent, wxWindowID id,
+                                  wxString title,
+                                  InstrumentProperties* properties,
+                                  DASH_CAP cap_flag, int s_value, int e_value);
+
+  ~DashboardInstrument_Speedometer(void) {}
 
 private:
-
 };
 
-#endif // _SPEEDOMETER_H_
-
+#endif  // __Speedometer_H__
